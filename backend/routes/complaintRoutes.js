@@ -21,15 +21,23 @@ const {
   getAllComplaints,
   updateComplaint,
   getSLASummary,
-  getSLAAlerts
+  getSLAAlerts,
+  saveFeedback,
+  getAllFeedback
 } = require("../controllers/complaintController");
 
+// ── Complaint routes ──────────────────────────────────────
 router.post("/complaints", upload.single("image"), createComplaint);
-router.get("/complaints", getAllComplaints);
-router.get("/complaints/:id", getComplaintById);
-router.put("/complaints/:id", updateComplaint);
+router.get("/complaints",      getAllComplaints);
+router.get("/complaints/:id",  getComplaintById);
+router.put("/complaints/:id",  updateComplaint);
 
+// ── SLA routes ────────────────────────────────────────────
 router.get("/sla/summary", getSLASummary);
 router.get("/sla/alerts",  getSLAAlerts);
+
+// ── Feedback routes ───────────────────────────────────────
+router.post("/feedback",   saveFeedback);
+router.get("/feedback",    getAllFeedback);
 
 module.exports = router;
