@@ -70,7 +70,7 @@ Complaint Stored in PostgreSQL
 
 # 🎯 Use Cases
 
-- Municipal Corporations
+- Municipal Corporationss
 - Smart City Platforms
 - Government Grievance Portals
 - University Complaint Systems
@@ -122,7 +122,7 @@ lok-seva-ai/
 │
 ├── .env.example # Environment variables sample
 ├── .gitignore # Ignored files
-├── README.md # Project documentation
+├── README.md # Project documented
 
 
 ---
@@ -163,5 +163,5 @@ Run ML service:
 python app.py
 5️⃣ Run Frontend (Streamlit)
 cd frontend
-pip install -r requirements.txt
+pip install -r requirements.txt (if any)
 streamlit run app.py
