@@ -274,7 +274,7 @@ def render():
             st.markdown('</div>', unsafe_allow_html=True)
         with colB:
             st.markdown('<div class="citizen-btn-container">', unsafe_allow_html=True)
-            if st.button("➕ File Another Complaint", key="track_new",
+            if st.button(" File Another Complaint", key="track_new",
                          use_container_width=True):
                 st.session_state.page = "user"
                 st.rerun()

@@ -26,7 +26,7 @@ async function checkSLA() {
     [now]
   );
   for (let c of atRisk.rows) {
-    console.log(`⚠️ AT RISK: #${c.id} — due ${toIST(c.deadline)}`);
+    console.log(`AT RISK: #${c.id} — due ${toIST(c.deadline)}`);
     await pool.query(`UPDATE complaints SET sla_status='at_risk' WHERE id=$1`, [c.id]);
   }
 
@@ -37,14 +37,14 @@ async function checkSLA() {
      AND escalated = false`
   );
   for (let c of toEscalate.rows) {
-    console.log(`⬆️ Escalating #${c.id}`);
+    console.log(`⬆ Escalating #${c.id}`);
     await pool.query(
       `UPDATE complaints SET escalated=true, sla_status='breached' WHERE id=$1`,
       [c.id]
     );
   }
 
-  console.log(`✅ SLA check [${toIST(now)}] — ${breached.rows.length} breached, ${atRisk.rows.length} at risk, ${toEscalate.rows.length} escalated`);
+  console.log(`✅SLA check [${toIST(now)}] — ${breached.rows.length} breached, ${atRisk.rows.length} at risk, ${toEscalate.rows.length} escalated`);
 }
 
 async function getSLASummary() {
