@@ -16,7 +16,7 @@ def render():
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
-        if st.button("📊 SLA Dashboard", key="manager_sla_btn", use_container_width=True):
+        if st.button(" SLA Dashboard", key="manager_sla_btn", use_container_width=True):
             st.session_state.page = "sla"
             st.rerun()
 
@@ -42,7 +42,7 @@ def render():
         return
 
     if not complaints:
-        st.warning("No complaint records currently exist in the database.")
+        st.warning("No complaint records currently exist in the database System .")
         return
 
     df = pd.DataFrame(complaints)
@@ -105,7 +105,7 @@ def render():
         else:
             st.markdown("""
             <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 1rem; color: #166534; font-size: 0.95rem; text-align: center; margin-bottom: 1.5rem;">
-                ✅ All active complaints are currently operating within SLA deadlines. No escalations.
+                All active complaints are currently operating within SLA deadlines. No escalations.
             </div>
             """, unsafe_allow_html=True)
 
