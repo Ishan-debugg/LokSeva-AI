@@ -301,7 +301,7 @@ def render():
     with faq2:
         with st.expander("How do I track my complaint status?"):
             st.markdown("Use the **Track Complaint** option and enter your Complaint ID to see live status — Pending, In Progress, or Resolved.")
-        with st.expander("⚠️ Why was my complaint marked as a duplicate?"):
+        with st.expander("Why was my complaint marked as a duplicate?"):
             st.markdown("If a very similar complaint is already active in your area, the system blocks the duplicate and shows you the existing Complaint ID instead.")
         with st.expander("🏛️ Who can access the Official Console?"):
             st.markdown("Only verified municipal staff — administrators and department managers — can log in to view, route, and resolve complaints.")
