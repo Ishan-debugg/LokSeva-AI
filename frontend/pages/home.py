@@ -305,7 +305,7 @@ def render():
             st.markdown("If a very similar complaint is already active in your area, the system blocks the duplicate and shows you the existing Complaint ID instead.")
         with st.expander("Who can access the Official Console?"):
             st.markdown("Only verified municipal staff — administrators and department managers — can log in to view, route, and resolve complaints.")
-        with st.expander("📞 Who do I contact for urgent issues?"):
+        with st.expander("Who do I contact for urgent issues?"):
             st.markdown("For emergency civic issues, contact your local ward office or municipal helpline directly in addition to filing here.")
 
     # ── BOTTOM GOVT STRIPE + FOOTER ──────────────────────────────────────────
