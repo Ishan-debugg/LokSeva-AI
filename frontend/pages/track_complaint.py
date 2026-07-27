@@ -91,7 +91,7 @@ def render():
 
     st.markdown("""
     <div class="hero-wrap" style="padding:2rem 2.5rem;">
-        <div class="hero-tag">🔍 GRIEVANCE TRACKING SYSTEM</div>
+        <div class="hero-tag">GRIEVANCE TRACKING SYSTEM</div>
         <div class="hero-title" style="font-size:2.2rem;">
             Track Your <span>Complaint</span>
         </div>

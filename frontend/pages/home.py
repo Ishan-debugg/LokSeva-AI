@@ -290,16 +290,16 @@ def render():
 
     faq1, faq2 = st.columns(2, gap="large")
     with faq1:
-        with st.expander("📝 How do I file a complaint?"):
+        with st.expander("How do I file a complaint?"):
             st.markdown("Go to the **Citizen Services Portal**, fill in your name, mobile number, location, and a description of the issue. You can optionally attach a photo. Submit to receive a unique Complaint ID.")
-        with st.expander("🤖 How is my complaint assigned to a department?"):
+        with st.expander("How is my complaint assigned to a department?"):
             st.markdown("Our AI model reads your complaint and automatically classifies it into the correct municipal department — Water Supply, Electric, Solid Waste Management, etc.")
-        with st.expander("⏱️ What is an SLA deadline?"):
+        with st.expander("What is an SLA deadline?"):
             st.markdown("Every complaint gets a resolution deadline — **2 days for high priority** and **4 days for standard** issues. The system tracks this in real time and alerts when at risk.")
-        with st.expander("📷 Is attaching a photo mandatory?"):
+        with st.expander("Is attaching a photo mandatory?"):
             st.markdown("No, attaching an image is **optional**. It simply helps the concerned department verify and act faster.")
     with faq2:
-        with st.expander("🔎 How do I track my complaint status?"):
+        with st.expander("How do I track my complaint status?"):
             st.markdown("Use the **Track Complaint** option and enter your Complaint ID to see live status — Pending, In Progress, or Resolved.")
         with st.expander("⚠️ Why was my complaint marked as a duplicate?"):
             st.markdown("If a very similar complaint is already active in your area, the system blocks the duplicate and shows you the existing Complaint ID instead.")
