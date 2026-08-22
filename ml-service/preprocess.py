@@ -1,10 +1,295 @@
-from langdetect import detect
-from deep_translator import GoogleTranslator
+"""
+preprocess.py
+─────────────────────────────────────────────────────────────────────────────
+Multilingual pre-processing pipeline for LokSevaAI.
 
-def preprocess_text(text):
-    try:
-        if detect(text) != 'en':
-            text = GoogleTranslator(source='auto', target='en').translate(text)
-    except:
-        pass
-    return text.lower()
+Strategy:
+  1. Keyword dictionary — maps Hindi/Marathi complaint words to English
+     equivalents so TF-IDF sees consistent English features.
+  2. Transliteration normaliser — common Romanised Hindi/Marathi spellings
+     ("bijli", "paani", "kachra", "rasta") mapped to their English concepts.
+  3. No external API calls → zero latency, works offline.
+  4. Falls back to GoogleTranslator only when text is detected as a language
+     other than English, Hindi, or Marathi (rare edge-case).
+─────────────────────────────────────────────────────────────────────────────
+"""
+
+import re
+
+# ── 1. DEVANAGARI KEYWORD → ENGLISH CONCEPT MAP ───────────────────────────
+# Each entry maps a Devanagari word/phrase to one or more English words that
+# the TF-IDF vectorizer already knows from KDMC training data.
+# Words are intentionally repeated to boost TF weight of the target concept.
+
+DEVANAGARI_MAP = {
+    # ── Electricity / Power ───────────────────────────────────────────────
+    "बिजली":       "electricity electric power light",
+    "बत्ती":       "light electricity electric",
+    "करंट":        "electricity electric current",
+    "पावर":        "power electricity electric",
+    "लाइट":        "light electricity electric",
+    "अंधेरा":      "electricity light electric dark",
+    "वीज":         "electricity electric power",          # Marathi
+    "दिवे":        "light electricity electric",          # Marathi
+    "वीजपुरवठा":   "electricity supply power electric",  # Marathi
+    "विद्युत":     "electricity electric power",
+    "ट्रान्सफॉर्मर": "transformer electricity electric",
+    "खांब":        "pole electricity electric streetlight", # Marathi
+    "स्ट्रीटलाइट": "streetlight light electricity",
+
+    # ── Water Supply ──────────────────────────────────────────────────────
+    "पानी":        "water supply drinking",
+    "पाणी":        "water supply drinking",               # Marathi
+    "जल":          "water supply",
+    "नल":          "tap water pipe supply",
+    "नळ":          "tap water pipe supply",               # Marathi
+    "पाइप":        "pipe water supply leak",
+    "पाईप":        "pipe water supply leak",
+    "पानीपुरवठा":  "water supply drinking",
+    "पाणीपुरवठा":  "water supply drinking",              # Marathi
+    "पानी नहीं":   "water supply no water",
+    "पानी बंद":    "water supply closed",
+
+    # ── Roads & Traffic ───────────────────────────────────────────────────
+    "सड़क":        "road street pothole traffic",
+    "रस्ता":       "road street pothole",                 # Marathi
+    "रास्ता":      "road street",
+    "गड्ढा":       "pothole road",
+    "खड्डे":       "pothole road",                        # Marathi
+    "ट्रैफिक":     "traffic road signal",
+    "सिग्नल":      "signal traffic road",
+    "पुल":         "bridge road",
+    "ब्रिज":       "bridge road",
+
+    # ── Sewage & Drainage ─────────────────────────────────────────────────
+    "नाला":        "drain sewage drainage nala",
+    "नाली":        "drain sewage drainage",
+    "सीवेज":       "sewage drainage",
+    "ड्रेनेज":     "drainage sewage",
+    "गटार":        "drain sewage drainage",               # Marathi
+    "मलनिस्सारण":  "sewage drainage",                    # Marathi
+    "बंद नाला":    "blocked drain sewage",
+    "नाला बंद":    "blocked drain sewage",
+
+    # ── Solid Waste / Garbage ─────────────────────────────────────────────
+    "कचरा":        "garbage waste solid waste",
+    "गंदगी":       "garbage filth waste",
+    "सफाई":        "cleaning garbage sweeping",
+    "झाडू":        "sweeping garbage cleaning",           # Marathi
+    "स्वच्छता":    "cleanliness garbage waste",
+    "कूड़ा":       "garbage waste",
+    "डस्टबिन":     "dustbin garbage waste",
+
+    # ── Encroachment ──────────────────────────────────────────────────────
+    "अतिक्रमण":   "encroachment illegal",
+    "अवैध":        "illegal encroachment",
+    "कब्जा":       "encroachment illegal occupation",
+    "अतिक्रमण हटाओ": "encroachment removal",
+}
+
+
+# ── 2. ROMANISED TRANSLITERATION MAP ──────────────────────────────────────
+# Covers how citizens type Hindi/Marathi using English letters (very common
+# on mobile keyboards).  Sorted by length DESC so longer phrases match first.
+
+TRANSLITERATION_MAP = [
+    # Electricity
+    ("power cut",        "electricity cut power outage electric"),
+    ("power outage",     "electricity outage electric"),
+    ("load shedding",    "electricity power outage electric"),
+    ("light nahi",       "electricity light no power"),
+    ("light band",       "electricity light no power"),
+    ("bijli nahi",       "electricity no power"),
+    ("bijli gayi",       "electricity gone no power"),
+    ("bijli cut",        "electricity cut power"),
+    ("current nahi",     "electricity no current power"),
+    ("current gaya",     "electricity gone no power"),
+    ("batti nahi",       "electricity light no power"),
+    ("batti gayi",       "electricity light gone"),
+    ("andhera",          "electricity dark no light"),
+    ("no electricity",   "electricity no power outage"),
+    ("no current",       "electricity no power"),
+    ("no power",         "electricity no power outage"),
+    ("veej nahi",        "electricity no power"),           # Marathi
+
+    # Water
+    ("paani nahi",       "water supply no water"),
+    ("pani nahi",        "water supply no water"),
+    ("paani band",       "water supply no water closed"),
+    ("nal band",         "water tap closed supply"),
+    ("pipe leak",        "water pipe leak supply"),
+    ("ganda paani",      "water dirty contaminated supply"),
+    ("dirty water",      "water contaminated supply"),
+    ("no water",         "water supply no water"),
+
+    # Roads
+    ("sadak kharab",     "road damage pothole"),
+    ("rasta kharab",     "road damage pothole"),
+    ("khaddha",          "pothole road"),
+    ("gadha",            "pothole road"),
+    ("road damage",      "road pothole damage"),
+    ("road repair",      "road pothole repair"),
+    ("traffic jam",      "traffic road congestion"),
+    ("signal band",      "traffic signal road"),
+
+    # Drainage / Sewage
+    ("nala block",       "drain sewage blocked"),
+    ("nali block",       "drain sewage blocked"),
+    ("naali jam",        "drain sewage blocked"),
+    ("sewage overflow",  "sewage drainage overflow"),
+    ("drainage block",   "drainage sewage blocked"),
+    ("ganda nala",       "sewage drain dirty"),
+    ("gatar",            "drain sewage"),                  # Marathi
+
+    # Garbage
+    ("kachra",           "garbage waste solid waste"),
+    ("kuda",             "garbage waste"),
+    ("gandagi",          "garbage filth waste"),
+    ("safai nahi",       "garbage cleaning not done"),
+    ("no cleaning",      "garbage cleanliness waste"),
+    ("waste not collected", "garbage waste collection"),
+
+    # Encroachment
+    ("atikraman",        "encroachment illegal"),
+    ("kabja",            "encroachment illegal occupation"),
+    ("avaidh",           "illegal encroachment"),
+    ("illegal building",  "encroachment illegal construction"),
+    ("illegal shop",      "encroachment illegal"),
+]
+
+
+# ── 3. DIRECT DEPARTMENT KEYWORD RULES ────────────────────────────────────
+# These are high-confidence rules that bypass the ML model entirely.
+# The keyword engine checks the raw (lowercased) complaint text BEFORE
+# and AFTER translation.  If any rule matches, the department is returned
+# directly — no ML needed.
+
+KEYWORD_RULES = [
+    # ─ Electric Department ───────────────────────────────────────────────
+    {
+        "department": "streetlight",
+        "keywords": [
+            "power cut", "power outage", "power failure", "load shedding",
+            "no electricity", "no power", "no current", "electricity cut",
+            "electricity gone", "electricity failure", "electric failure",
+            "bijli", "batti", "bijli nahi", "batti nahi", "bijli gayi",
+            "current nahi", "current gaya", "light nahi", "light band",
+            "andhera", "andher", "veej nahi", "streetlight", "street light",
+            "street lamp", "lamp post", "transformer", "electric pole",
+            "electricity supply", "electric supply", "power supply cut",
+            "बिजली", "बत्ती", "वीज", "करंट", "विद्युत",
+        ],
+    },
+    # ─ Water Supply Department ───────────────────────────────────────────
+    {
+        "department": "water",
+        "keywords": [
+            "no water", "water supply", "water not coming", "water cut",
+            "water shortage", "water problem", "water pipe", "water leak",
+            "water leakage", "drinking water", "dirty water", "contaminated water",
+            "pipe burst", "water pressure", "paani nahi", "pani nahi",
+            "paani band", "nal band", "पानी", "पाणी", "जल", "नल",
+        ],
+    },
+    # ─ Sewage & Drainage ─────────────────────────────────────────────────
+    {
+        "department": "sewage",
+        "keywords": [
+            "sewage", "drainage", "drain blocked", "drain overflow",
+            "blocked drain", "nala", "naala", "nali", "naali",
+            "gutter", "manhole", "sewer", "sewage overflow",
+            "drainage problem", "nala block", "nali block", "naali jam",
+            "flood water", "waterlogging", "water logging",
+            "गटार", "नाला", "नाली", "मलनिस्सारण",
+        ],
+    },
+    # ─ Road & Traffic ────────────────────────────────────────────────────
+    {
+        "department": "road",
+        "keywords": [
+            "pothole", "road damage", "road repair", "road broken",
+            "road bad condition", "speed breaker", "footpath", "divider",
+            "traffic signal", "traffic jam", "traffic light",
+            "road accident", "road construction", "sadak", "rasta",
+            "khaddha", "gadha", "road kharab",
+            "सड़क", "रस्ता", "गड्ढा", "खड्डे", "ट्रैफिक",
+        ],
+    },
+    # ─ Solid Waste / Garbage ─────────────────────────────────────────────
+    {
+        "department": "garbage",
+        "keywords": [
+            "garbage", "waste", "trash", "rubbish", "litter",
+            "dustbin", "garbage collection", "waste collection",
+            "no sweeping", "no cleaning", "cleanliness", "kachra",
+            "kuda", "gandagi", "safai", "कचरा", "गंदगी", "सफाई",
+        ],
+    },
+    # ─ Encroachment ──────────────────────────────────────────────────────
+    {
+        "department": "encroachment",
+        "keywords": [
+            "encroachment", "illegal construction", "illegal building",
+            "illegal shop", "illegal occupation", "atikraman", "kabja",
+            "avaidh", "अतिक्रमण", "अवैध", "कब्जा",
+        ],
+    },
+]
+
+
+# ── HELPERS ────────────────────────────────────────────────────────────────
+
+def _apply_devanagari_map(text: str) -> str:
+    """Replace Devanagari words with English concepts."""
+    for deva_word, english_expansion in DEVANAGARI_MAP.items():
+        if deva_word in text:
+            text = text.replace(deva_word, " " + english_expansion + " ")
+    return text
+
+
+def _apply_transliteration_map(text: str) -> str:
+    """Replace Romanised Hindi/Marathi phrases with English equivalents."""
+    for romanised, english_expansion in TRANSLITERATION_MAP:
+        # whole-word boundary match to avoid partial replacements
+        pattern = r'(?<!\w)' + re.escape(romanised) + r'(?!\w)'
+        if re.search(pattern, text):
+            text = re.sub(pattern, " " + english_expansion + " ", text)
+    return text
+
+
+def keyword_department_override(text: str):
+    """
+    Check the complaint text against high-confidence keyword rules.
+    Returns the department key string if a match is found, else None.
+    The caller should use this BEFORE falling back to the ML model.
+    """
+    lower = text.lower()
+    for rule in KEYWORD_RULES:
+        for kw in rule["keywords"]:
+            if kw.lower() in lower:
+                return rule["department"]
+    return None
+
+
+def preprocess_text(text: str) -> str:
+    """
+    Full preprocessing pipeline:
+      1. Devanagari keyword expansion (Hindi + Marathi script)
+      2. Romanised transliteration expansion
+      3. Lowercase normalisation
+      4. Extra whitespace removed
+    No external API calls — fully offline.
+    """
+    if not text or not isinstance(text, str):
+        return ""
+
+    # Step 1 — Devanagari → English concept expansion
+    text = _apply_devanagari_map(text)
+
+    # Step 2 — Romanised transliteration → English concept expansion
+    text = _apply_transliteration_map(text.lower())
+
+    # Step 3 — Lowercase and strip extra spaces
+    text = re.sub(r'\s+', ' ', text.lower()).strip()
+
+    return text
