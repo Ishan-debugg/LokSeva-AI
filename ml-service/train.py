@@ -6,7 +6,8 @@ Improvements over previous version:
      multilingual preprocessing (keyword dictionary in preprocess.py).
   2. Synthetic data augmentation — common misclassified patterns added so
      the model learns "power cut" → electric, "paani nahi" → water, etc.
-  3. Proper 80/20 train/test split with no data leakage.
+  3. Stratified grouped holdout; duplicate complaints and synthetic examples
+     are kept out of the test set.
   4. Evaluation: Precision, Recall, F1 per class + confusion matrix charts.
   5. Retrain on full data before saving to disk for production.
 ─────────────────────────────────────────────────────────────────────────────
@@ -20,8 +21,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.pipeline import FeatureUnion
 
 from preprocess import preprocess_text
 
@@ -177,11 +179,6 @@ print(f"   After label cleaning: {sorted(df['category'].unique())}")
 df = df[['complaint', 'category']].dropna()
 print(f"   Original dataset: {len(df)} rows")
 
-# Append synthetic augmentation
-aug_df = pd.DataFrame(AUGMENTED_DATA, columns=['complaint', 'category'])
-df = pd.concat([df, aug_df], ignore_index=True)
-print(f"   After augmentation: {len(df)} rows (+{len(aug_df)} synthetic)")
-
 # Preprocess — offline multilingual expansion (no API)
 print("🔤 Preprocessing text (multilingual keyword expansion)...")
 df['clean_text'] = df['complaint'].astype(str).apply(preprocess_text)
@@ -192,20 +189,41 @@ y = df['category']
 print(f"   Categories: {sorted(y.unique())}")
 
 
-# ── TRAIN / TEST SPLIT ─────────────────────────────────────────────────────
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+# ── GROUPED TRAIN / TEST SPLIT ON REAL DATA ────────────────────────────────
+# Keep duplicate normalized complaints together and generated examples out of
+# the test set so evaluation reflects unseen real complaints.
+splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)
+train_indices, test_indices = next(splitter.split(X, y, groups=X))
+X_train = X.iloc[train_indices].reset_index(drop=True)
+X_test = X.iloc[test_indices].reset_index(drop=True)
+y_train = y.iloc[train_indices].reset_index(drop=True)
+y_test = y.iloc[test_indices].reset_index(drop=True)
+
+# Augmented examples are training data only.
+aug_df = pd.DataFrame(AUGMENTED_DATA, columns=['complaint', 'category'])
+aug_df['clean_text'] = aug_df['complaint'].astype(str).apply(preprocess_text)
+X_train = pd.concat([X_train, aug_df['clean_text']], ignore_index=True)
+y_train = pd.concat([y_train, aug_df['category']], ignore_index=True)
+
 print(f"\n📊 Train: {len(X_train)} | Test: {len(X_test)}")
 
 
 # ── VECTORIZATION — fit only on training data ──────────────────────────────
-vectorizer = TfidfVectorizer(
-    stop_words='english',
-    ngram_range=(1, 2),      # unigrams + bigrams capture "power cut", "no water"
-    min_df=1,                # keep even rare terms (important for augmented data)
-    max_features=8000
-)
+vectorizer = FeatureUnion([
+    ('word', TfidfVectorizer(
+        stop_words='english',
+        ngram_range=(1, 2),
+        min_df=1,
+        max_features=8000
+    )),
+    ('char', TfidfVectorizer(
+        analyzer='char_wb',
+        ngram_range=(3, 5),
+        min_df=2,
+        max_features=30000,
+        sublinear_tf=True
+    ))
+])
 X_train_vec = vectorizer.fit_transform(X_train)
 X_test_vec  = vectorizer.transform(X_test)     # no fit → no data leakage
 
@@ -214,9 +232,8 @@ X_test_vec  = vectorizer.transform(X_test)     # no fit → no data leakage
 print("🤖 Training Logistic Regression...")
 model = LogisticRegression(
     max_iter=500,
-    C=5.0,           # slightly higher regularisation strength vs default
-    solver='lbfgs',
-    multi_class='auto'
+    C=5.0,
+    solver='lbfgs'
 )
 model.fit(X_train_vec, y_train)
 
@@ -246,7 +263,7 @@ plt.close()
 print("✅ Saved: metrics_bar_chart.png")
 
 # Chart 2 — Confusion matrix heatmap
-labels = sorted(y.unique())
+labels = sorted(set(y_test) | set(y_pred))
 cm = confusion_matrix(y_test, y_pred, labels=labels)
 plt.figure(figsize=(12, 8))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
@@ -265,8 +282,10 @@ print("✅ Saved: confusion_matrix.png")
 # Evaluation was on 20% held-out data.
 # For production, we retrain on 100% so the saved model has seen everything.
 print("\n🔁 Retraining on full dataset for production...")
-X_full_vec = vectorizer.fit_transform(X)
-model.fit(X_full_vec, y)
+X_full = pd.concat([X, aug_df['clean_text']], ignore_index=True)
+y_full = pd.concat([y, aug_df['category']], ignore_index=True)
+X_full_vec = vectorizer.fit_transform(X_full)
+model.fit(X_full_vec, y_full)
 
 pickle.dump(model,      open("model.pkl",      "wb"))
 pickle.dump(vectorizer, open("vectorizer.pkl", "wb"))

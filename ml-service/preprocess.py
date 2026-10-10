@@ -87,6 +87,65 @@ DEVANAGARI_MAP = {
     "अतिक्रमण हटाओ": "encroachment removal",
 }
 
+# Marathi inflections and vocabulary that do not reliably match the Hindi forms.
+MARATHI_SPECIFIC = {
+    # Electricity
+    "रोहित्र": "transformer electricity",
+    "वीजतार": "electric wire electricity",
+    "लोडशेडिंग": "load shedding electricity power",
+    "वीजेचा": "electricity power",
+    "वीजेची": "electricity power",
+    "वीजेमुळे": "electricity power",
+
+    # Water
+    "नळकांडे": "water pipe",
+    "गळती": "leak water pipe",
+    "दूषित": "contaminated dirty water",
+    "पाण्याचा": "water supply",
+    "पाण्याची": "water supply",
+    "पाण्याने": "water supply",
+    "पाण्यात": "water supply",
+
+    # Drainage
+    "नाले": "drain sewage nala",
+    "गटारे": "drain sewage gutter",
+    "तुंबलेले": "blocked clogged drain",
+    "साचले": "accumulated waterlogging",
+    "ओसंडून": "overflow drain sewage",
+    "भुयारी": "underground drainage",
+    "नाल्याची": "drain sewage",
+    "नाल्यात": "drain sewage",
+    "नाल्यामुळे": "drain sewage",
+
+    # Road
+    "रस्त्यावर": "road street",
+    "खड्डा": "pothole road",
+    "दुरुस्ती": "repair road",
+    "वाहतूक": "traffic road",
+    "रस्त्याची": "road street",
+    "रस्त्याने": "road street",
+
+    # Garbage
+    "उचलला": "collected garbage",
+    "घंटागाडी": "garbage collection vehicle",
+
+    # Encroachment
+    "अनधिकृत": "unauthorized illegal encroachment",
+    "बेकायदा": "illegal unauthorized encroachment",
+    "बांधकाम": "construction building",
+    "काढा": "remove encroachment",
+}
+
+DEVANAGARI_MAP.update(MARATHI_SPECIFIC)
+
+MARATHI_PHRASE_MAP = {
+    "पाणी साचले": "water accumulated waterlogging drainage",
+    "पाणी येत नाही": "water not coming supply",
+    "वीज नाही": "electricity no power",
+    "नाला तुंबला": "drain blocked sewage",
+    "गटार तुंबले": "drain blocked sewage gutter",
+}
+
 
 # ── 2. ROMANISED TRANSLITERATION MAP ──────────────────────────────────────
 # Covers how citizens type Hindi/Marathi using English letters (very common
@@ -241,7 +300,8 @@ KEYWORD_RULES = [
 
 def _apply_devanagari_map(text: str) -> str:
     """Replace Devanagari words with English concepts."""
-    for deva_word, english_expansion in DEVANAGARI_MAP.items():
+    for deva_word in sorted(DEVANAGARI_MAP, key=len, reverse=True):
+        english_expansion = DEVANAGARI_MAP[deva_word]
         if deva_word in text:
             text = text.replace(deva_word, " " + english_expansion + " ")
     return text
@@ -264,6 +324,17 @@ def keyword_department_override(text: str):
     The caller should use this BEFORE falling back to the ML model.
     """
     lower = text.lower()
+    marathi_phrase_rules = (
+        ("पाणी साचले", "sewage"),
+        ("पाणी येत नाही", "water"),
+        ("वीज नाही", "streetlight"),
+        ("नाला तुंबला", "sewage"),
+        ("गटार तुंबले", "sewage"),
+    )
+    for phrase, department in marathi_phrase_rules:
+        if phrase in lower:
+            return department
+
     for rule in KEYWORD_RULES:
         for kw in rule["keywords"]:
             if kw.lower() in lower:
@@ -282,6 +353,10 @@ def preprocess_text(text: str) -> str:
     """
     if not text or not isinstance(text, str):
         return ""
+
+    # Expand full Marathi phrases before replacing their component words.
+    for phrase, expansion in MARATHI_PHRASE_MAP.items():
+        text = text.replace(phrase, " " + expansion + " ")
 
     # Step 1 — Devanagari → English concept expansion
     text = _apply_devanagari_map(text)
