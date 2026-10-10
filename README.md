@@ -54,6 +54,9 @@ Priority Classification
 Complaint Stored in PostgreSQL
 ```
 
+Model evaluation results and the practical plan for improving accuracy are in
+[ml-service/ACCURACY_ROADMAP.md](./ml-service/ACCURACY_ROADMAP.md).
+
 ---
 
 # 📊 Workflow

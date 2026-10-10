@@ -15,6 +15,8 @@ Improvements over previous version:
 
 import pandas as pd
 import pickle
+import re
+import json
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -22,10 +24,98 @@ import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedGroupKFold
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 from sklearn.pipeline import FeatureUnion
+from sklearn.svm import LinearSVC
 
 from preprocess import preprocess_text
+
+
+MODEL_CONFIGS = [
+    {"name": "logistic_C1", "kind": "logistic", "C": 1.0, "class_weight": None},
+    {"name": "logistic_C5", "kind": "logistic", "C": 5.0, "class_weight": None},
+    {"name": "logistic_C1_balanced", "kind": "logistic", "C": 1.0, "class_weight": "balanced"},
+    {"name": "linear_svc_C0.5", "kind": "linear_svc", "C": 0.5, "class_weight": None},
+    {"name": "linear_svc_C1", "kind": "linear_svc", "C": 1.0, "class_weight": None},
+    {"name": "linear_svc_C1_balanced", "kind": "linear_svc", "C": 1.0, "class_weight": "balanced"},
+]
+
+
+def make_vectorizer():
+    return FeatureUnion([
+        ('word', TfidfVectorizer(
+            stop_words='english',
+            ngram_range=(1, 2),
+            min_df=1,
+            max_features=8000
+        )),
+        ('char', TfidfVectorizer(
+            analyzer='char_wb',
+            ngram_range=(3, 5),
+            min_df=2,
+            max_features=30000,
+            sublinear_tf=True
+        ))
+    ])
+
+
+def make_model(config):
+    if config["kind"] == "linear_svc":
+        return LinearSVC(
+            C=config["C"],
+            class_weight=config["class_weight"],
+            max_iter=5000,
+            random_state=42
+        )
+    return LogisticRegression(
+        C=config["C"],
+        class_weight=config["class_weight"],
+        max_iter=1000,
+        solver='lbfgs',
+        random_state=42
+    )
+
+
+MARATHI_EVAL_MARKERS = {
+    "आहे", "आहेत", "नाही", "नाहीत", "आमच्या", "आपल्या", "भागात",
+    "येत", "काढा", "तुंबले", "तुंबलेला", "पाहिजे", "केली", "केले",
+    "करून", "झाली", "झाले", "झालं", "होत", "मिळत", "त्यामुळे",
+}
+
+
+def has_marathi_markers(text):
+    words = re.findall(r'[\u0900-\u097f]+', text)
+    return bool(MARATHI_EVAL_MARKERS.intersection(words))
+
+
+def choose_grouped_holdout(text, labels, random_states=range(42, 62)):
+    target_test_fraction = 0.2
+    class_counts = labels.value_counts()
+    best_split = None
+    for seed in random_states:
+        splitter = StratifiedGroupKFold(
+            n_splits=5, shuffle=True, random_state=seed
+        )
+        for fold_number, (candidate_train, candidate_test) in enumerate(
+            splitter.split(text, labels, groups=text), start=1
+        ):
+            candidate_counts = labels.iloc[candidate_test].value_counts()
+            class_fraction_error = (
+                candidate_counts.reindex(class_counts.index, fill_value=0)
+                / class_counts - target_test_fraction
+            ).abs().mean()
+            size_fraction_error = (
+                abs(len(candidate_test) / len(labels) - target_test_fraction)
+            )
+            score = class_fraction_error + size_fraction_error
+            if best_split is None or score < best_split[0]:
+                best_split = (
+                    score, candidate_train, candidate_test, seed, fold_number
+                )
+
+    if best_split is None:
+        raise ValueError("Unable to create a grouped holdout split.")
+    return best_split[1:]
 
 
 # ── SYNTHETIC AUGMENTATION DATA ────────────────────────────────────────────
@@ -181,60 +271,164 @@ print(f"   Original dataset: {len(df)} rows")
 
 # Preprocess — offline multilingual expansion (no API)
 print("🔤 Preprocessing text (multilingual keyword expansion)...")
+df['is_marathi'] = df['complaint'].astype(str).apply(has_marathi_markers)
 df['clean_text'] = df['complaint'].astype(str).apply(preprocess_text)
 
-X = df['clean_text']
-y = df['category']
+X = df['clean_text'].reset_index(drop=True)
+y = df['category'].reset_index(drop=True)
+is_marathi = df['is_marathi'].reset_index(drop=True)
 
 print(f"   Categories: {sorted(y.unique())}")
 
 
-# ── GROUPED TRAIN / TEST SPLIT ON REAL DATA ────────────────────────────────
-# Keep duplicate normalized complaints together and generated examples out of
-# the test set so evaluation reflects unseen real complaints.
-splitter = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)
-train_indices, test_indices = next(splitter.split(X, y, groups=X))
-X_train = X.iloc[train_indices].reset_index(drop=True)
-X_test = X.iloc[test_indices].reset_index(drop=True)
-y_train = y.iloc[train_indices].reset_index(drop=True)
-y_test = y.iloc[test_indices].reset_index(drop=True)
+# ── SEPARATE GROUPED HOLDOUTS ─────────────────────────────────────────────
+# Marathi is detected using explicit grammatical markers, not Devanagari
+# script alone (Hindi and Marathi share that script). Keep mixed-language
+# normalized groups in the primary evaluation rather than the Marathi set.
+language_counts_by_group = pd.DataFrame({
+    "clean_text": X,
+    "is_marathi": is_marathi
+}).groupby("clean_text")["is_marathi"].nunique()
+mixed_language_groups = set(language_counts_by_group[language_counts_by_group > 1].index)
+marathi_mask = is_marathi & ~X.isin(mixed_language_groups)
+primary_mask = ~marathi_mask
 
-# Augmented examples are training data only.
+primary_indices = X.index[primary_mask]
+marathi_indices = X.index[marathi_mask]
+X_primary = X.iloc[primary_indices].reset_index(drop=True)
+y_primary = y.iloc[primary_indices].reset_index(drop=True)
+X_marathi = X.iloc[marathi_indices].reset_index(drop=True)
+y_marathi = y.iloc[marathi_indices].reset_index(drop=True)
+
+primary_train_idx, primary_test_idx, primary_seed, primary_fold = (
+    choose_grouped_holdout(X_primary, y_primary)
+)
+marathi_train_idx, marathi_test_idx, marathi_seed, marathi_fold = (
+    choose_grouped_holdout(X_marathi, y_marathi)
+)
+
+X_train_primary = X_primary.iloc[primary_train_idx].reset_index(drop=True)
+y_train_primary = y_primary.iloc[primary_train_idx].reset_index(drop=True)
+X_test = X_primary.iloc[primary_test_idx].reset_index(drop=True)
+y_test = y_primary.iloc[primary_test_idx].reset_index(drop=True)
+X_train_marathi = X_marathi.iloc[marathi_train_idx].reset_index(drop=True)
+y_train_marathi = y_marathi.iloc[marathi_train_idx].reset_index(drop=True)
+X_marathi_test = X_marathi.iloc[marathi_test_idx].reset_index(drop=True)
+y_marathi_test = y_marathi.iloc[marathi_test_idx].reset_index(drop=True)
+
+X_train_real = pd.concat(
+    [X_train_primary, X_train_marathi], ignore_index=True
+)
+y_train_real = pd.concat(
+    [y_train_primary, y_train_marathi], ignore_index=True
+)
+test_groups = set(X_test) | set(X_marathi_test)
+if set(X_train_real) & test_groups:
+    raise ValueError("A normalized complaint group appears in training and holdout.")
+
 aug_df = pd.DataFrame(AUGMENTED_DATA, columns=['complaint', 'category'])
 aug_df['clean_text'] = aug_df['complaint'].astype(str).apply(preprocess_text)
-X_train = pd.concat([X_train, aug_df['clean_text']], ignore_index=True)
-y_train = pd.concat([y_train, aug_df['category']], ignore_index=True)
-
-print(f"\n📊 Train: {len(X_train)} | Test: {len(X_test)}")
 
 
-# ── VECTORIZATION — fit only on training data ──────────────────────────────
-vectorizer = FeatureUnion([
-    ('word', TfidfVectorizer(
-        stop_words='english',
-        ngram_range=(1, 2),
-        min_df=1,
-        max_features=8000
-    )),
-    ('char', TfidfVectorizer(
-        analyzer='char_wb',
-        ngram_range=(3, 5),
-        min_df=2,
-        max_features=30000,
-        sublinear_tf=True
-    ))
-])
-X_train_vec = vectorizer.fit_transform(X_train)
-X_test_vec  = vectorizer.transform(X_test)     # no fit → no data leakage
+def add_training_augmentation(train_text, train_labels, excluded_groups):
+    eligible_aug = aug_df.loc[~aug_df['clean_text'].isin(excluded_groups)]
+    augmented_text = pd.concat(
+        [train_text, eligible_aug['clean_text']], ignore_index=True
+    )
+    augmented_labels = pd.concat(
+        [train_labels, eligible_aug['category']], ignore_index=True
+    )
+    return augmented_text, augmented_labels
 
 
-# ── TRAIN MODEL ────────────────────────────────────────────────────────────
-print("🤖 Training Logistic Regression...")
-model = LogisticRegression(
-    max_iter=500,
-    C=5.0,
-    solver='lbfgs'
+print(
+    f"\n📊 Primary non-Marathi — Train: {len(X_train_primary)} | "
+    f"Test: {len(X_test)}"
 )
+print(
+    f"   Split seed/fold: {primary_seed}/{primary_fold}; "
+    f"test groups: {X_test.nunique()}"
+)
+print(
+    f"📊 Marathi marker benchmark — Train: {len(X_train_marathi)} | "
+    f"Test: {len(X_marathi_test)}"
+)
+print(
+    f"   Split seed/fold: {marathi_seed}/{marathi_fold}; "
+    f"test groups: {X_marathi_test.nunique()} | "
+    f"test classes: {sorted(y_marathi_test.unique())}"
+)
+print(
+    f"   Marathi marker rows: {int(is_marathi.sum())}; "
+    f"mixed-language groups held in primary set: {len(mixed_language_groups)}"
+)
+
+# Select hyperparameters against the primary non-Marathi evaluation only.
+# Marathi training rows remain available during CV without scoring the Marathi
+# holdout or exposing either holdout's normalized complaint groups.
+cv_splitter = StratifiedGroupKFold(n_splits=4, shuffle=True, random_state=43)
+cv_splits = list(cv_splitter.split(
+    X_train_primary, y_train_primary, groups=X_train_primary
+))
+cv_results = []
+print("\n🔎 Tuning grouped 4-fold CV configurations...")
+
+for config in MODEL_CONFIGS:
+    fold_accuracy = []
+    fold_macro_f1 = []
+    for fold_train_idx, fold_valid_idx in cv_splits:
+        fold_train_text = pd.concat([
+            X_train_primary.iloc[fold_train_idx].reset_index(drop=True),
+            X_train_marathi
+        ], ignore_index=True)
+        fold_train_labels = pd.concat([
+            y_train_primary.iloc[fold_train_idx].reset_index(drop=True),
+            y_train_marathi
+        ], ignore_index=True)
+        fold_valid_text = X_train_primary.iloc[fold_valid_idx].reset_index(drop=True)
+        fold_valid_labels = y_train_primary.iloc[fold_valid_idx].reset_index(drop=True)
+        valid_groups = set(fold_valid_text)
+
+        fit_text, fit_labels = add_training_augmentation(
+            fold_train_text, fold_train_labels, valid_groups | test_groups
+        )
+        fold_vectorizer = make_vectorizer()
+        fit_vectors = fold_vectorizer.fit_transform(fit_text)
+        valid_vectors = fold_vectorizer.transform(fold_valid_text)
+        fold_model = make_model(config)
+        fold_model.fit(fit_vectors, fit_labels)
+        fold_predictions = fold_model.predict(valid_vectors)
+
+        fold_accuracy.append(accuracy_score(fold_valid_labels, fold_predictions))
+        fold_macro_f1.append(f1_score(
+            fold_valid_labels, fold_predictions, average='macro', zero_division=0
+        ))
+
+    cv_results.append({
+        **config,
+        "mean_accuracy": sum(fold_accuracy) / len(fold_accuracy),
+        "mean_macro_f1": sum(fold_macro_f1) / len(fold_macro_f1),
+    })
+    print(
+        f"   {config['name']}: accuracy={cv_results[-1]['mean_accuracy']:.4f}, "
+        f"macro_f1={cv_results[-1]['mean_macro_f1']:.4f}"
+    )
+
+# Prefer balanced per-class quality; use CV accuracy as the tie-breaker.
+best_config = max(
+    cv_results,
+    key=lambda result: (result["mean_macro_f1"], result["mean_accuracy"])
+)
+print(f"\n✅ Selected by grouped CV: {best_config['name']}")
+
+X_train, y_train = add_training_augmentation(
+    X_train_real, y_train_real, test_groups
+)
+vectorizer = make_vectorizer()
+X_train_vec = vectorizer.fit_transform(X_train)
+X_test_vec = vectorizer.transform(X_test)
+X_marathi_test_vec = vectorizer.transform(X_marathi_test)
+model = make_model(best_config)
 model.fit(X_train_vec, y_train)
 
 
@@ -243,6 +437,28 @@ y_pred = model.predict(X_test_vec)
 
 print("\n📈 Classification Report:")
 print(classification_report(y_test, y_pred, zero_division=0))
+print(f"Primary non-Marathi holdout accuracy: {accuracy_score(y_test, y_pred):.4f}")
+print(
+    "Primary non-Marathi holdout macro F1: "
+    f"{f1_score(y_test, y_pred, average='macro', zero_division=0):.4f}"
+)
+marathi_pred = model.predict(X_marathi_test_vec)
+print("\n📈 Separate Marathi Marker Benchmark:")
+print(classification_report(
+    y_marathi_test, marathi_pred, zero_division=0
+))
+print(
+    f"Marathi marker holdout accuracy: "
+    f"{accuracy_score(y_marathi_test, marathi_pred):.4f}"
+)
+print(
+    f"Marathi marker holdout macro F1: "
+    f"{f1_score(y_marathi_test, marathi_pred, average='macro', zero_division=0):.4f}"
+)
+print(
+    "Note: Encroachment Department has synthetic training examples only and "
+    "is not represented in either real-data holdout."
+)
 
 # Chart 1 — Precision / Recall / F1 bar chart
 report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
@@ -277,14 +493,89 @@ plt.savefig('confusion_matrix.png', dpi=150)
 plt.close()
 print("✅ Saved: confusion_matrix.png")
 
+# Marathi-specific charts are reported separately and do not contribute to
+# the primary non-Marathi accuracy.
+marathi_report = classification_report(
+    y_marathi_test, marathi_pred, output_dict=True, zero_division=0
+)
+marathi_report_df = pd.DataFrame(marathi_report).transpose()
+marathi_report_df = marathi_report_df.drop(
+    index=['accuracy', 'macro avg', 'weighted avg'], errors='ignore'
+)
+marathi_report_df = marathi_report_df[['precision', 'recall', 'f1-score']]
+marathi_report_df.plot(
+    kind='bar', figsize=(14, 6), colormap='Set2', edgecolor='black'
+)
+plt.title('Marathi Marker Benchmark: Precision, Recall & F1 by Department')
+plt.xlabel('Department Category')
+plt.ylabel('Score (0–1)')
+plt.xticks(rotation=30, ha='right')
+plt.ylim(0, 1.1)
+plt.legend(loc='lower right')
+plt.tight_layout()
+plt.savefig('marathi_metrics_bar_chart.png', dpi=150)
+plt.close()
+print("✅ Saved: marathi_metrics_bar_chart.png")
+
+marathi_labels = sorted(set(y_marathi_test) | set(marathi_pred))
+marathi_cm = confusion_matrix(
+    y_marathi_test, marathi_pred, labels=marathi_labels
+)
+plt.figure(figsize=(12, 8))
+sns.heatmap(
+    marathi_cm, annot=True, fmt='d', cmap='Greens',
+    xticklabels=marathi_labels, yticklabels=marathi_labels
+)
+plt.title('Marathi Marker Benchmark Confusion Matrix')
+plt.xlabel('Predicted Department')
+plt.ylabel('Actual Department')
+plt.xticks(rotation=30, ha='right')
+plt.tight_layout()
+plt.savefig('marathi_confusion_matrix.png', dpi=150)
+plt.close()
+print("✅ Saved: marathi_confusion_matrix.png")
+
+evaluation_metrics = {
+    "marathi_language_identification": (
+        "Heuristic based on explicit Marathi grammatical markers; "
+        "not a manually verified language label."
+    ),
+    "primary_non_marathi": {
+        "train_support": len(X_train_primary),
+        "test_support": len(y_test),
+        "accuracy": accuracy_score(y_test, y_pred),
+        "macro_f1": f1_score(y_test, y_pred, average='macro', zero_division=0),
+        "classification_report": classification_report(
+            y_test, y_pred, output_dict=True, zero_division=0
+        ),
+    },
+    "marathi_marker_benchmark": {
+        "train_support": len(X_train_marathi),
+        "test_support": len(y_marathi_test),
+        "accuracy": accuracy_score(y_marathi_test, marathi_pred),
+        "macro_f1": f1_score(
+            y_marathi_test, marathi_pred, average='macro', zero_division=0
+        ),
+        "classification_report": marathi_report,
+    },
+    "selected_model": {
+        "name": best_config["name"],
+        "grouped_cv_accuracy": best_config["mean_accuracy"],
+        "grouped_cv_macro_f1": best_config["mean_macro_f1"],
+    },
+}
+with open("evaluation_metrics.json", "w", encoding="utf-8") as metrics_file:
+    json.dump(evaluation_metrics, metrics_file, ensure_ascii=False, indent=2)
+print("✅ Saved: evaluation_metrics.json")
+
 
 # ── RETRAIN ON FULL DATA BEFORE SAVING ────────────────────────────────────
-# Evaluation was on 20% held-out data.
-# For production, we retrain on 100% so the saved model has seen everything.
 print("\n🔁 Retraining on full dataset for production...")
 X_full = pd.concat([X, aug_df['clean_text']], ignore_index=True)
 y_full = pd.concat([y, aug_df['category']], ignore_index=True)
+vectorizer = make_vectorizer()
 X_full_vec = vectorizer.fit_transform(X_full)
+model = make_model(best_config)
 model.fit(X_full_vec, y_full)
 
 pickle.dump(model,      open("model.pkl",      "wb"))
