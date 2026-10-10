@@ -136,7 +136,54 @@ MARATHI_SPECIFIC = {
     "काढा": "remove encroachment",
 }
 
+MARATHI_INFLECTION_MAP = {
+    # Drainage
+    "नाल्याची": "drain sewage",
+    "नाल्याचा": "drain sewage",
+    "नाल्यात": "drain sewage",
+    "नाल्यामुळे": "drain sewage",
+    "नाल्यावर": "drain sewage",
+    "नाल्याने": "drain sewage",
+    "नाल्यांची": "drain sewage",
+    "गटाराची": "gutter drain sewage",
+    "गटाराचा": "gutter drain sewage",
+    "गटारात": "gutter drain sewage",
+    "गटारामुळे": "gutter drain sewage",
+    "गटारांची": "gutter drain sewage",
+
+    # Water
+    "पाण्याची": "water supply",
+    "पाण्याचा": "water supply",
+    "पाण्यात": "water supply",
+    "पाण्यामुळे": "water supply",
+    "पाण्याने": "water supply",
+
+    # Electricity
+    "वीजेची": "electricity electric",
+    "वीजेचा": "electricity electric",
+    "वीजेमुळे": "electricity electric",
+    "वीजेत": "electricity electric",
+
+    # Road
+    "रस्त्याची": "road street",
+    "रस्त्याचा": "road street",
+    "रस्त्यावर": "road street",
+    "रस्त्याने": "road street",
+    "रस्त्यामुळे": "road street",
+
+    # Garbage
+    "कचऱ्याची": "garbage waste",
+    "कचऱ्याचा": "garbage waste",
+    "कचऱ्यामुळे": "garbage waste",
+
+    # Encroachment
+    "अतिक्रमणाची": "encroachment illegal",
+    "अतिक्रमणाचा": "encroachment illegal",
+    "अतिक्रमणामुळे": "encroachment illegal",
+}
+
 DEVANAGARI_MAP.update(MARATHI_SPECIFIC)
+DEVANAGARI_MAP.update(MARATHI_INFLECTION_MAP)
 
 MARATHI_PHRASE_MAP = {
     "पाणी साचले": "water accumulated waterlogging drainage",
@@ -145,6 +192,71 @@ MARATHI_PHRASE_MAP = {
     "नाला तुंबला": "drain blocked sewage",
     "गटार तुंबले": "drain blocked sewage gutter",
 }
+
+MARATHI_PHRASES = [
+    # Drainage and waterlogging; these must win over the generic water rule.
+    ("पाणी साचले आहे", "sewage"),
+    ("नाल्यामुळे पाणी", "sewage"),
+    ("गटारामुळे पाणी", "sewage"),
+    ("पाणी निघत नाही", "sewage"),
+    ("पाणी वाहत नाही", "sewage"),
+    ("पाणी तुंबले", "sewage"),
+    ("नाल्याची सफाई", "sewage"),
+    ("गटाराची सफाई", "sewage"),
+    ("नाले तुंबले", "sewage"),
+    ("गटारे तुंबले", "sewage"),
+    ("नाला तुंबला", "sewage"),
+    ("गटार तुंबले", "sewage"),
+    ("नाली तुंबली", "sewage"),
+    ("पाणी जमा", "sewage"),
+    ("पाणी साचले", "sewage"),
+    ("नाला साफ", "sewage"),
+
+    # Water supply
+    ("नळाला पाणी नाही", "water"),
+    ("पाणीपुरवठा बंद", "water"),
+    ("पाणी येत नाही", "water"),
+    ("घाण पाणी येते", "water"),
+    ("पाणी गळती", "water"),
+    ("दूषित पाणी", "water"),
+    ("पाईप फुटला", "water"),
+    ("पाणी नाही", "water"),
+    ("पाणी बंद", "water"),
+    ("नळ बंद", "water"),
+
+    # Electricity and streetlights
+    ("दिवे जळत नाहीत", "streetlight"),
+    ("स्ट्रीट लाईट बंद", "streetlight"),
+    ("ट्रान्सफॉर्मर खराब", "streetlight"),
+    ("रस्त्यावरील दिवे", "streetlight"),
+    ("वीज खंडित", "streetlight"),
+    ("वीज गेली", "streetlight"),
+    ("दिवे नाहीत", "streetlight"),
+    ("खांब पडला", "streetlight"),
+    ("वीज नाही", "streetlight"),
+
+    # Road and traffic
+    ("रस्त्यावर खड्डे", "road"),
+    ("रस्त्याची दुरुस्ती", "road"),
+    ("वाहतूक कोंडी", "road"),
+    ("रस्ता खराब", "road"),
+    ("सिग्नल बंद", "road"),
+    ("पूल खराब", "road"),
+
+    # Garbage and cleanliness
+    ("कचरा उचलला नाही", "garbage"),
+    ("कचरा नाही उचलला", "garbage"),
+    ("घंटागाडी आली नाही", "garbage"),
+    ("कचरा साफ नाही", "garbage"),
+
+    # Encroachment; "काढा" is intentionally not a standalone rule.
+    ("अनधिकृत बांधकाम", "encroachment"),
+    ("रस्त्यावर अतिक्रमण", "encroachment"),
+    ("अतिक्रमण हटवा", "encroachment"),
+    ("अतिक्रमण काढा", "encroachment"),
+    ("बेकायदा बांधकाम", "encroachment"),
+]
+MARATHI_PHRASES.sort(key=lambda item: len(item[0]), reverse=True)
 
 
 # ── 2. ROMANISED TRANSLITERATION MAP ──────────────────────────────────────
@@ -324,14 +436,7 @@ def keyword_department_override(text: str):
     The caller should use this BEFORE falling back to the ML model.
     """
     lower = text.lower()
-    marathi_phrase_rules = (
-        ("पाणी साचले", "sewage"),
-        ("पाणी येत नाही", "water"),
-        ("वीज नाही", "streetlight"),
-        ("नाला तुंबला", "sewage"),
-        ("गटार तुंबले", "sewage"),
-    )
-    for phrase, department in marathi_phrase_rules:
+    for phrase, department in MARATHI_PHRASES:
         if phrase in lower:
             return department
 

@@ -14,25 +14,25 @@ Latest run against `dataset/kdmc_data.xlsx`:
 |---|---:|
 | Usable real complaints | 2,724 |
 | Real labeled departments | 5 |
-| Primary (non-Marathi marker) holdout | 453 complaints / 330 normalized text groups |
-| Marathi-marker benchmark | 95 complaints / 93 normalized text groups |
-| Selected model | Logistic Regression, `C=1` |
-| Primary grouped 4-fold CV accuracy | 90.57% |
-| Primary grouped 4-fold CV macro F1 | 90.24% |
-| Primary holdout accuracy | 92.05% |
-| Primary holdout macro F1 | 90.98% |
-| Marathi-marker holdout accuracy | 83.16% |
-| Marathi-marker holdout macro F1 | 83.03% |
+| Primary (non-Marathi marker) holdout | 448 complaints / 341 normalized text groups |
+| Marathi-marker benchmark | 96 complaints / 91 normalized text groups |
+| Selected model | Logistic Regression, `C=5` |
+| Primary grouped 4-fold CV accuracy | 91.29% |
+| Primary grouped 4-fold CV macro F1 | 90.57% |
+| Primary holdout accuracy | 90.62% |
+| Primary holdout macro F1 | 90.55% |
+| Marathi-marker holdout accuracy | 81.25% |
+| Marathi-marker holdout macro F1 | 79.74% |
 
 Primary holdout F1 by department:
 
 | Department | F1 |
 |---|---:|
-| Electric | 0.96 |
-| Road & Traffic | 0.81 |
-| Sewage & Drainage | 0.90 |
-| Solid Waste | 0.89 |
-| Water Supply | 0.98 |
+| Electric | 0.98 |
+| Road & Traffic | 0.93 |
+| Sewage & Drainage | 0.77 |
+| Solid Waste | 0.88 |
+| Water Supply | 0.97 |
 
 The 92.05% primary score excludes rows identified by the Marathi-marker
 heuristic and is not directly comparable with the earlier 86.62% mixed holdout.
@@ -46,6 +46,10 @@ and Marathi share Devanagari script. Marathi complaints without these markers
 (including Romanized Marathi) can remain in the primary set. Review or add
 human-verified language labels before using these language-specific scores as
 formal benchmarks.
+
+The latest Marathi phrase-rule regression check passed 14/14 hand-written
+cases. This checks only those specific deterministic rules; it is not the
+Marathi model accuracy result.
 
 The workbook has no real Encroachment Department examples; that class is
 currently represented by synthetic training examples, so its production
@@ -68,9 +72,13 @@ hyperparameter.
   features.
 - Prevented augmented examples matching validation or holdout text groups
   from entering training for those partitions.
+- Added longest-first explicit Marathi phrase rules and explicit inflection
+  mappings; no suffix stripping is used. Standalone "काढा" is not a routing
+  rule.
 - Added a separate Marathi metrics chart, confusion matrix, and
   `evaluation_metrics.json`; Marathi metrics do not contribute to the primary
   accuracy score.
+- Added `marathi_test_cases.py` as a focused phrase-rule regression check.
 - Kept final production retraining on all real and synthetic training data
   after evaluation.
 
