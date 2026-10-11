@@ -34,11 +34,13 @@ Primary holdout F1 by department:
 | Solid Waste | 0.88 |
 | Water Supply | 0.97 |
 
-The 92.05% primary score excludes rows identified by the Marathi-marker
-heuristic and is not directly comparable with the earlier 86.62% mixed holdout.
-The separate Marathi-marker result is 83.16% on 95 complaints. These are
-evaluation scores, not a guarantee of live-site accuracy. Encroachment is not
-represented in either real-data holdout.
+The 90.62% primary classifier-only score excludes rows identified by the
+Marathi-marker heuristic. The separate Marathi-marker classifier-only result
+is 81.25% on 96 complaints. These are not end-to-end website scores because
+keyword rules may override the model prediction. See the
+[end-to-end comparison report](./PIPELINE_COMPARISON_REPORT.md) for the
+previous-versus-current routing results. Encroachment is not represented in
+either real-data holdout.
 
 The workbook does not label complaint language. The Marathi subset is
 provisionally identified by explicit Marathi grammatical markers because Hindi
