@@ -133,7 +133,7 @@ MARATHI_SPECIFIC = {
     "अनधिकृत": "unauthorized illegal encroachment",
     "बेकायदा": "illegal unauthorized encroachment",
     "बांधकाम": "construction building",
-    "काढा": "remove encroachment",
+    "काढा": "remove",
 }
 
 MARATHI_INFLECTION_MAP = {
@@ -195,15 +195,12 @@ MARATHI_PHRASE_MAP = {
 
 MARATHI_PHRASES = [
     # Drainage and waterlogging; these must win over the generic water rule.
-    ("नाल्यात कचरा", "sewage"),
     ("पाणी साचले आहे", "sewage"),
     ("नाल्यामुळे पाणी", "sewage"),
     ("गटारामुळे पाणी", "sewage"),
     ("पाणी निघत नाही", "sewage"),
     ("पाणी वाहत नाही", "sewage"),
     ("पाणी तुंबले", "sewage"),
-    ("नाल्याची सफाई", "sewage"),
-    ("गटाराची सफाई", "sewage"),
     ("नाले तुंबले", "sewage"),
     ("गटारे तुंबले", "sewage"),
     ("नाला तुंबला", "sewage"),
@@ -211,7 +208,6 @@ MARATHI_PHRASES = [
     ("नाली तुंबली", "sewage"),
     ("पाणी जमा", "sewage"),
     ("पाणी साचले", "sewage"),
-    ("नाला साफ", "sewage"),
 
     # Water supply
     ("नळाला पाणी नाही", "water"),
@@ -259,35 +255,13 @@ MARATHI_PHRASES = [
 ]
 MARATHI_PHRASES.sort(key=lambda item: len(item[0]), reverse=True)
 
-DRAIN_ANCHORS = {
-    "drain", "drains", "drainage", "gutter", "gutters", "sewer", "sewage",
-    "sewerage", "nala", "naala", "nali", "naali", "manhole", "man hole",
-    "stormwater", "storm water", "underground drainage", "septic",
-    "cesspool", "cesspit",
-    "नाला", "नाली", "नाले", "नाल्यात", "गटार", "गटारे", "मलनिस्सारण",
-    "सीवर", "सीवेज", "मैनहोल", "ड्रेनेज", "सेप्टिक",
-}
-
-CLEANING_GARBAGE_WORDS = {
-    "cleaning", "clean", "safai", "lift", "lifted", "lifting", "garbage",
-    "waste", "smell", "stench", "odour", "odor", "foul", "filth", "dirty",
-    "blocked", "block", "overflow", "overflowing", "accumulated", "stagnant",
-    "material", "debris", "sludge", "clog", "clogged", "chok", "choked",
-    "logged", "logging", "water logged", "waterlogging",
-    "सफाई", "कचरा", "गंदगी", "बदबू", "बंद", "जाम", "साफ", "उचलावा",
-    "उचलना", "घाण", "वास",
-}
-
 COMPOUND_PATTERNS = [
-    (r'\bsepti[ck]\s*tank\b', "sewage"),
-    (r'\bsepitc\s*tank\b', "sewage"),
-    (r'\bclean(?:ing|ign)\s+(?:of\s+)?(?:the\s+)?septi[ck]\b', "sewage"),
     (r'\b(?:foul|bad|dirty)\s+smell\b.{0,30}\b(?:drain|gutter|sewer)\w*\b', "sewage"),
     (r'\b(?:smell|odou?r|stench)\b.{0,30}\b(?:drain|gutter|sewer)\w*\b', "sewage"),
     (r'\b(?:drain|gutter|sewer)\w*\b.{0,40}\b(?:smell|odou?r|stench|foul)\b', "sewage"),
-    (r'\b(?:material|debris|sludge)\b.{0,40}\b(?:gutter|drain|nala)\w*\b', "sewage"),
-    (r'\b(?:gutter|drain|nala)\w*\b.{0,40}\b(?:material|debris|sludge)\b', "sewage"),
-    (r'\b(?:rain\s*water|rainwater)\s+(?:log|logged|logging)\b', "sewage"),
+    (r'\b(?:material|debris|sludge)\b.{0,70}\b(?:gutter|drain|nala)\w*\b.{0,70}\b(?:clog|block|overflow)\w*\b', "sewage"),
+    (r'\b(?:gutter|drain|nala)\w*\b.{0,70}\b(?:material|debris|sludge)\b.{0,70}\b(?:clog|block|overflow)\w*\b', "sewage"),
+    (r'\b(?:rain\s*water|rainwater)\s+(?:log|logged|logging)\b.{0,40}\b(?:drain|gutter|nala)\w*\b', "sewage"),
     (r'\b(?:drain|gutter|sewer)\w*\b.{0,40}\b(?:overflow|blocked|clog|chok)\w*\b', "sewage"),
     (r'\b(?:overflow|blocked|clog|chok)\w*\b.{0,40}\b(?:drain|gutter|sewer)\w*\b', "sewage"),
 ]
@@ -390,11 +364,10 @@ KEYWORD_RULES = [
         "department": "sewage",
         "keywords": [
             "sewage", "drainage", "drain blocked", "drain overflow",
-            "blocked drain", "nala", "naala", "nali", "naali",
-            "gutter", "manhole", "sewer", "sewage overflow",
+            "blocked drain", "manhole", "sewer", "sewage overflow",
             "drainage problem", "nala block", "nali block", "naali jam",
             "flood water", "waterlogging", "water logging",
-            "गटार", "नाला", "नाली", "मलनिस्सारण",
+            "मलनिस्सारण", "सीवेज", "सीवर", "मैनहोल",
         ],
     },
     # ─ Water Supply Department ───────────────────────────────────────────
@@ -474,15 +447,15 @@ def keyword_department_override(text: str):
         if department == "sewage" and phrase in lower:
             return department
 
-    for phrase, department in MARATHI_PHRASES:
-        if department != "sewage" and phrase in lower:
-            return department
-
-    if _drain_anchor_check(lower):
-        return "sewage"
-
     for pattern, department in COMPOUND_PATTERNS:
         if re.search(pattern, lower, re.IGNORECASE):
+            return department
+
+    if _has_drain_waste_conflict(lower):
+        return None
+
+    for phrase, department in MARATHI_PHRASES:
+        if department != "sewage" and phrase in lower:
             return department
 
     for rule in KEYWORD_RULES:
@@ -492,24 +465,29 @@ def keyword_department_override(text: str):
     return None
 
 
-def _drain_anchor_check(text: str):
-    lower = text.lower()
-    has_anchor = any(
-        _contains_term(lower, anchor) for anchor in DRAIN_ANCHORS
-    )
-    has_cleaning_or_garbage_context = any(
-        _contains_term(lower, term) for term in CLEANING_GARBAGE_WORDS
-    )
-    if has_anchor and has_cleaning_or_garbage_context:
-        return "sewage"
-    return None
-
-
-def _contains_term(text: str, term: str) -> bool:
-    if re.search(r'[a-z]', term, re.IGNORECASE):
-        pattern = r'(?<!\w)' + re.escape(term) + r'(?!\w)'
+def _contains_keyword(text: str, keyword: str) -> bool:
+    if re.search(r'[a-z]', keyword, re.IGNORECASE):
+        pattern = r'(?<!\w)' + re.escape(keyword) + r'(?!\w)'
         return re.search(pattern, text, re.IGNORECASE) is not None
-    return term in text
+    return keyword in text
+
+
+def _has_drain_waste_conflict(text: str) -> bool:
+    drain_terms = (
+        "drain", "drainage", "gutter", "sewer", "nala", "naala", "nali",
+        "naali", "नाला", "नाली", "नाले", "नाल्यात", "नाल्याची",
+        "नाल्याचा", "नाल्याने", "नाल्यावर", "नाल्यामुळे", "नाल्यांची",
+        "गटार", "गटारे",
+    )
+    waste_terms = (
+        "garbage", "waste", "trash", "rubbish", "kachra", "कचरा",
+        "उचलावा", "उचलना", "collection", "clean", "cleaned",
+        "cleaning", "sweeping", "safai", "सफाई", "साफ", "स्वच्छता",
+    )
+    return (
+        any(_contains_keyword(text, term) for term in drain_terms)
+        and any(_contains_keyword(text, term) for term in waste_terms)
+    )
 
 
 def preprocess_text(text: str) -> str:

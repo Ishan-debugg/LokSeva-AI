@@ -39,8 +39,12 @@ Marathi-marker heuristic. The separate Marathi-marker classifier-only result
 is 81.25% on 96 complaints. These are not end-to-end website scores because
 keyword rules may override the model prediction. See the
 [end-to-end comparison report](./PIPELINE_COMPARISON_REPORT.md) for the
-previous-versus-current routing results. Encroachment is not represented in
-either real-data holdout.
+previous-versus-current routing results. The latest narrowed rule pipeline
+scored 86.95% accuracy and 86.95% macro F1 across the same 544-record grouped
+holdout; its primary accuracy was 90.63% and Marathi-marker accuracy was
+69.79%. These end-to-end results are diagnostic because rules were refined
+after reviewing this holdout. Encroachment is not represented in either
+real-data holdout.
 
 The workbook does not label complaint language. The Marathi subset is
 provisionally identified by explicit Marathi grammatical markers because Hindi
@@ -49,18 +53,15 @@ and Marathi share Devanagari script. Marathi complaints without these markers
 human-verified language labels before using these language-specific scores as
 formal benchmarks.
 
-The latest Marathi phrase-rule regression check passed 14/14 hand-written
-cases. This checks only those specific deterministic rules; it is not the
-Marathi model accuracy result.
-
-After reviewing the Sewage-to-Solid-Waste confusions, phrase-first Marathi
-routing, drain-anchor co-occurrence checks, and targeted compound patterns
-were added. All seven content-bearing drainage misclassification examples
-now route to Sewage & Drainage in direct prediction checks; the low-information
-"Hi / Please assist" complaint is not treated as a drainage rule and needs
-label/data review. These routing checks do not change the classifier-only
-holdout accuracy above; evaluate the full live pipeline separately before
-claiming an updated overall system accuracy.
+The latest phrase and ambiguity regression check passed 28/28 checks: 14
+hand-written department-routing cases plus raw and preprocessed keyword-rule
+checks for seven ambiguous or standalone inputs. This is a narrow regression
+suite, not a Marathi model-accuracy result. Explicit blocked/overflowing
+drains and foul-smelling drains can route to Sewage; generic drain cleaning,
+garbage-in-drain, and septic-tank-cleaning cases defer to the classifier
+because the workbook contains conflicting labels for those patterns. A
+classifier fallback can still assign a department to vague input; it does not
+abstain or request clarification.
 
 The workbook has no real Encroachment Department examples; that class is
 currently represented by synthetic training examples, so its production
@@ -84,11 +85,11 @@ hyperparameter.
 - Prevented augmented examples matching validation or holdout text groups
   from entering training for those partitions.
 - Added longest-first explicit Marathi phrase rules and explicit inflection
-  mappings; no suffix stripping is used. Standalone "काढा" is not a routing
-  rule.
-- Added drain-anchor and targeted compound rules to separate drainage
-  complaints from generic garbage complaints, with sewage checked before
-  water in single-keyword fallback.
+  mappings; no suffix stripping is used. Standalone "काढा" is not a
+  deterministic routing rule.
+- Kept high-confidence blocked/overflowing-drain and foul-smell patterns,
+  while ambiguous drain-cleaning and drain-plus-garbage cases defer to the
+  classifier instead of being routed by a broad keyword rule.
 - Added a separate Marathi metrics chart, confusion matrix, and
   `evaluation_metrics.json`; Marathi metrics do not contribute to the primary
   accuracy score.

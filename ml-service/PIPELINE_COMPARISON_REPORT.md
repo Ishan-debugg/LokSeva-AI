@@ -1,75 +1,90 @@
-# Previous vs Current Complaint-Routing Evaluation
+# Previous vs Narrowed Complaint-Routing Rules
 
 ## Summary
 
-The current keyword-rule changes improve routing of Sewage & Drainage
-complaints, but redirect some Solid Waste complaints to Sewage. On the same
-544-record holdout, overall end-to-end accuracy rose by only 0.55 percentage
-points, from 82.17% to 82.72%. Macro F1 rose by 0.89 points.
+The narrowed rules restore Solid Waste recall while keeping high-confidence
+drainage patterns such as blocked/overflowing drains and foul drain smells
+routed to Sewage & Drainage. Generic drain-cleaning and drain-plus-garbage
+complaints are no longer forced to either department by keyword rules; they
+fall through to the trained classifier.
 
-This is a diagnostic comparison, not a new unbiased estimate: the current
-rules were written after reviewing errors from this holdout. Validate them on
-a newly collected, untouched dataset before making an accuracy claim.
+On the same 544-record grouped holdout, the narrowed pipeline scored 86.95%
+end-to-end accuracy, compared with 82.72% for the previous broad rule set.
+The gain is diagnostic, not an unbiased estimate, because the rules were
+refined after reviewing errors from this holdout.
 
 ## Evaluation method
 
-- Dataset: `dataset/kdmc_data.xlsx`; 2,724 real complaints across five
-  labeled departments.
-- Holdout: same grouped split for both versions, 448 primary
+- Dataset: `dataset/kdmc_data.xlsx`; 2,724 real complaints across five labeled
+  departments.
+- Holdout: the same grouped split for both versions: 448 primary
   non-Marathi-marker rows and 96 Marathi-marker rows (544 records total).
-  Exact duplicate text was retained as scoring weight; there were 450 distinct
-  raw test texts and 432 normalized text groups.
-- Model: Logistic Regression selected as `C=5` by the same grouped training
-  CV. Both versions use the same fitted model predictions; only the keyword
-  override implementation differs.
-- Previous rules: `HEAD^` (`cbbd942343fd52debf41519b6bb05bc09441d55e`).
-- Current rules: `HEAD` (`acd013da20430cb0684a853659751e15b1d05747`).
-- Metrics are record-weighted. The language split uses the existing Marathi
-  marker heuristic, not human-verified language labels.
+  Duplicate records remain part of the record-weighted score.
+- Model: Logistic Regression (`C=5`), selected by grouped cross-validation.
+  The text features and fitted-model predictions are held constant; this
+  comparison measures the routing-rule changes.
+- Marathi identification: the existing grammatical-marker heuristic, not
+  human-verified language labels.
+- The previous broad-rule results were recorded in the prior comparison.
+  The narrowed results were recomputed after removing broad cleaning and
+  septic-tank overrides.
 
 ## End-to-end results
 
-| Evaluation set | Previous accuracy | Current accuracy | Change | Previous macro F1 | Current macro F1 | Change |
-|---|---:|---:|---:|---:|---:|---:|
-| Combined (544 records) | 82.17% | 82.72% | +0.55 pp | 82.88% | 83.77% | +0.89 pp |
-| Primary, non-Marathi-marker (448) | 85.27% | 85.27% | 0.00 pp | 86.24% | 86.33% | +0.09 pp |
-| Marathi-marker subset (96) | 67.71% | 70.83% | +3.13 pp | 64.85% | 68.44% | +3.59 pp |
+| Evaluation set | Previous broad rules | Narrowed rules | Change |
+|---|---:|---:|---:|
+| Combined accuracy (544) | 82.72% | 86.95% | +4.23 pp |
+| Combined macro F1 | 83.77% | 86.95% | +3.18 pp |
+| Primary accuracy (448) | 85.27% | 90.63% | +5.36 pp |
+| Primary macro F1 | 86.33% | 90.82% | +4.49 pp |
+| Marathi-marker accuracy (96) | 70.83% | 69.79% | -1.04 pp |
+| Marathi-marker macro F1 | 68.44% | 66.17% | -2.27 pp |
 
-For context, with keyword overrides bypassed, the classifier alone scored
-90.63% on the primary holdout and 81.25% on the Marathi-marker holdout
-(88.97% combined). These are not directly comparable to end-to-end results:
-the complete pipeline can override classifier predictions, and those rules
-currently lower accuracy on this holdout.
+For context, the classifier without keyword overrides scored 90.63% on the
+primary holdout and 81.25% on the Marathi-marker holdout. The full pipeline
+must be reported separately because deterministic keyword rules can replace
+the model's result.
 
 ## Sewage vs Solid Waste tradeoff
 
 Combined end-to-end class metrics:
 
-| Department | Previous precision / recall / F1 | Current precision / recall / F1 | Effect |
-|---|---|---|---|
-| Sewage & Drainage | 65.71% / 67.65% / 66.67% | 59.74% / 90.20% / 71.88% | Recall +22.55 pp; precision -5.97 pp |
-| Solid Waste | 81.40% / 70.95% / 75.81% | 94.51% / 58.11% / 71.97% | Recall -12.84 pp; precision +13.11 pp |
+| Department | Previous broad rules (precision / recall / F1) | Narrowed rules (precision / recall / F1) |
+|---|---|---|
+| Sewage & Drainage | 59.74% / 90.20% / 71.88% | 84% / 69% / 76% |
+| Solid Waste | 94.51% / 58.11% / 71.97% | 84% / 88% / 86% |
 
-In the primary non-Marathi-marker subset, actual Sewage complaints predicted
-as Solid Waste decreased from 21 to 2. However, actual Solid Waste complaints
-predicted as Sewage increased from 29 to 48. The rules made Sewage routing
-more sensitive, but too broad for some complaints whose labels are Solid
-Waste.
+In the primary holdout, Sewage-to-Solid-Waste errors changed from 2 to 21,
+while Solid-Waste-to-Sewage errors changed from 48 to 6. The narrowed rules
+reduce the false routing of waste complaints into Sewage, but the classifier
+still misses 21 primary Sewage complaints as Solid Waste. Overall combined
+holdout errors were 22 Sewage-to-Solid-Waste and 7 Solid-Waste-to-Sewage.
 
-Across changed routing decisions, 24 distinct raw texts (49 records) changed:
-23 previously incorrect records became correct, 20 previously correct records
-became incorrect, and 6 remained incorrect. The net gain is only 3 correct
-records across the combined 544-record holdout.
+The narrower behavior is deliberate: blocked/overflowing drains and foul
+drain smells are high-confidence Sewage signals, while generic cleaning,
+garbage-in-a-drain, and septic-tank-cleaning requests have conflicting
+department labels in the workbook. Those ambiguous cases now defer to the
+model instead of being forced by a rule.
+
+## Data and interpretation caveats
+
+- This holdout was used to inspect errors and shape the rules, so the
+  improvement must not be presented as an independent estimate of future
+  performance. Validate against newly collected, human-reviewed complaints.
+- The dataset contains conflicting labels for drainage-related requests,
+  including septic-tank cleaning and garbage in drains. Confirm the intended
+  municipal ownership before relabeling or adding deterministic routing.
+- The Marathi subset is heuristic and small. Its score decreased slightly;
+  collect human-verified Marathi complaints and evaluate them separately.
+- Encroachment has no real labeled examples in the workbook, so real-world
+  performance for that department remains unknown.
+- A complaint with little information may still receive a class from the
+  classifier fallback; removing a hard-coded rule does not make the API
+  abstain or request clarification.
 
 ## Recommendation
 
-Do not describe this change as a broad accuracy improvement. It is a
-Sewage-recall tradeoff with almost no primary-set accuracy gain. Review the
-Solid Waste-to-Sewage regressions and verify their source labels. In
-particular, blanket rules such as assigning every septic-tank-cleaning
-complaint to Sewage may conflict with the dataset's Solid Waste labels.
-
-Keep the classifier-only metrics and end-to-end pipeline metrics separate in
-future reporting. Before deployment claims, evaluate the revised routing
-rules on new labeled complaints that were not used to identify or write the
-rules.
+Keep the narrowed rules rather than restoring broad drain-cleaning or
+septic-tank overrides. Review the remaining Sewage-to-Solid-Waste examples
+with department owners, then evaluate the chosen policy on a new untouched
+holdout. Do not claim 95% accuracy from these results.

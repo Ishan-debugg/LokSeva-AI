@@ -1,7 +1,7 @@
-"""Small Marathi phrase-rule regression benchmark (not a general accuracy set)."""
+"""Phrase and ambiguity regression checks (not a general accuracy set)."""
 
 from predict import predict_category
-from preprocess import keyword_department_override
+from preprocess import keyword_department_override, preprocess_text
 
 
 MARATHI_TEST_CASES = [
@@ -29,17 +29,30 @@ def run_marathi_benchmark() -> bool:
         if predicted != expected:
             failures.append((complaint, expected, predicted))
 
-    if keyword_department_override("काढा") is not None:
-        failures.append(("काढा", None, keyword_department_override("काढा")))
+    ambiguity_checks = [
+        "काढा",
+        "gutter cleaning is requested and garbage should be collected",
+        "नाल्यात कचरा साठला असून सर्व कचरा उचलावा",
+        "नाला साफ",
+        "नाल्याची सफाई",
+        "गटाराची सफाई",
+        "cleaning of septic tank",
+    ]
+    for complaint in ambiguity_checks:
+        for text in (complaint, preprocess_text(complaint)):
+            predicted = keyword_department_override(text)
+            if predicted is not None:
+                failures.append((complaint, None, predicted))
 
     for complaint, expected, predicted in failures:
         print(f"FAIL: {complaint}")
         print(f"  expected={expected!r}, predicted={predicted!r}")
 
-    passed = len(MARATHI_TEST_CASES) - len(failures)
+    total_checks = len(MARATHI_TEST_CASES) + 2 * len(ambiguity_checks)
+    passed = total_checks - len(failures)
     print(
-        f"\nMarathi phrase-rule checks: {passed}/{len(MARATHI_TEST_CASES)} "
-        f"({100 * passed / len(MARATHI_TEST_CASES):.1f}%)"
+        f"\nPhrase and ambiguity checks: {passed}/{total_checks} "
+        f"({100 * passed / total_checks:.1f}%)"
     )
     return not failures
 
