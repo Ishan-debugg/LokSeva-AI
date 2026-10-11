@@ -195,6 +195,7 @@ MARATHI_PHRASE_MAP = {
 
 MARATHI_PHRASES = [
     # Drainage and waterlogging; these must win over the generic water rule.
+    ("नाल्यात कचरा", "sewage"),
     ("पाणी साचले आहे", "sewage"),
     ("नाल्यामुळे पाणी", "sewage"),
     ("गटारामुळे पाणी", "sewage"),
@@ -257,6 +258,39 @@ MARATHI_PHRASES = [
     ("बेकायदा बांधकाम", "encroachment"),
 ]
 MARATHI_PHRASES.sort(key=lambda item: len(item[0]), reverse=True)
+
+DRAIN_ANCHORS = {
+    "drain", "drains", "drainage", "gutter", "gutters", "sewer", "sewage",
+    "sewerage", "nala", "naala", "nali", "naali", "manhole", "man hole",
+    "stormwater", "storm water", "underground drainage", "septic",
+    "cesspool", "cesspit",
+    "नाला", "नाली", "नाले", "नाल्यात", "गटार", "गटारे", "मलनिस्सारण",
+    "सीवर", "सीवेज", "मैनहोल", "ड्रेनेज", "सेप्टिक",
+}
+
+CLEANING_GARBAGE_WORDS = {
+    "cleaning", "clean", "safai", "lift", "lifted", "lifting", "garbage",
+    "waste", "smell", "stench", "odour", "odor", "foul", "filth", "dirty",
+    "blocked", "block", "overflow", "overflowing", "accumulated", "stagnant",
+    "material", "debris", "sludge", "clog", "clogged", "chok", "choked",
+    "logged", "logging", "water logged", "waterlogging",
+    "सफाई", "कचरा", "गंदगी", "बदबू", "बंद", "जाम", "साफ", "उचलावा",
+    "उचलना", "घाण", "वास",
+}
+
+COMPOUND_PATTERNS = [
+    (r'\bsepti[ck]\s*tank\b', "sewage"),
+    (r'\bsepitc\s*tank\b', "sewage"),
+    (r'\bclean(?:ing|ign)\s+(?:of\s+)?(?:the\s+)?septi[ck]\b', "sewage"),
+    (r'\b(?:foul|bad|dirty)\s+smell\b.{0,30}\b(?:drain|gutter|sewer)\w*\b', "sewage"),
+    (r'\b(?:smell|odou?r|stench)\b.{0,30}\b(?:drain|gutter|sewer)\w*\b', "sewage"),
+    (r'\b(?:drain|gutter|sewer)\w*\b.{0,40}\b(?:smell|odou?r|stench|foul)\b', "sewage"),
+    (r'\b(?:material|debris|sludge)\b.{0,40}\b(?:gutter|drain|nala)\w*\b', "sewage"),
+    (r'\b(?:gutter|drain|nala)\w*\b.{0,40}\b(?:material|debris|sludge)\b', "sewage"),
+    (r'\b(?:rain\s*water|rainwater)\s+(?:log|logged|logging)\b', "sewage"),
+    (r'\b(?:drain|gutter|sewer)\w*\b.{0,40}\b(?:overflow|blocked|clog|chok)\w*\b', "sewage"),
+    (r'\b(?:overflow|blocked|clog|chok)\w*\b.{0,40}\b(?:drain|gutter|sewer)\w*\b', "sewage"),
+]
 
 
 # ── 2. ROMANISED TRANSLITERATION MAP ──────────────────────────────────────
@@ -351,17 +385,6 @@ KEYWORD_RULES = [
             "बिजली", "बत्ती", "वीज", "करंट", "विद्युत",
         ],
     },
-    # ─ Water Supply Department ───────────────────────────────────────────
-    {
-        "department": "water",
-        "keywords": [
-            "no water", "water supply", "water not coming", "water cut",
-            "water shortage", "water problem", "water pipe", "water leak",
-            "water leakage", "drinking water", "dirty water", "contaminated water",
-            "pipe burst", "water pressure", "paani nahi", "pani nahi",
-            "paani band", "nal band", "पानी", "पाणी", "जल", "नल",
-        ],
-    },
     # ─ Sewage & Drainage ─────────────────────────────────────────────────
     {
         "department": "sewage",
@@ -372,6 +395,17 @@ KEYWORD_RULES = [
             "drainage problem", "nala block", "nali block", "naali jam",
             "flood water", "waterlogging", "water logging",
             "गटार", "नाला", "नाली", "मलनिस्सारण",
+        ],
+    },
+    # ─ Water Supply Department ───────────────────────────────────────────
+    {
+        "department": "water",
+        "keywords": [
+            "no water", "water supply", "water not coming", "water cut",
+            "water shortage", "water problem", "water pipe", "water leak",
+            "water leakage", "drinking water", "dirty water", "contaminated water",
+            "pipe burst", "water pressure", "paani nahi", "pani nahi",
+            "paani band", "nal band", "पानी", "पाणी", "जल", "नल",
         ],
     },
     # ─ Road & Traffic ────────────────────────────────────────────────────
@@ -437,7 +471,18 @@ def keyword_department_override(text: str):
     """
     lower = text.lower()
     for phrase, department in MARATHI_PHRASES:
-        if phrase in lower:
+        if department == "sewage" and phrase in lower:
+            return department
+
+    for phrase, department in MARATHI_PHRASES:
+        if department != "sewage" and phrase in lower:
+            return department
+
+    if _drain_anchor_check(lower):
+        return "sewage"
+
+    for pattern, department in COMPOUND_PATTERNS:
+        if re.search(pattern, lower, re.IGNORECASE):
             return department
 
     for rule in KEYWORD_RULES:
@@ -445,6 +490,26 @@ def keyword_department_override(text: str):
             if kw.lower() in lower:
                 return rule["department"]
     return None
+
+
+def _drain_anchor_check(text: str):
+    lower = text.lower()
+    has_anchor = any(
+        _contains_term(lower, anchor) for anchor in DRAIN_ANCHORS
+    )
+    has_cleaning_or_garbage_context = any(
+        _contains_term(lower, term) for term in CLEANING_GARBAGE_WORDS
+    )
+    if has_anchor and has_cleaning_or_garbage_context:
+        return "sewage"
+    return None
+
+
+def _contains_term(text: str, term: str) -> bool:
+    if re.search(r'[a-z]', term, re.IGNORECASE):
+        pattern = r'(?<!\w)' + re.escape(term) + r'(?!\w)'
+        return re.search(pattern, text, re.IGNORECASE) is not None
+    return term in text
 
 
 def preprocess_text(text: str) -> str:

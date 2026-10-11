@@ -51,6 +51,15 @@ The latest Marathi phrase-rule regression check passed 14/14 hand-written
 cases. This checks only those specific deterministic rules; it is not the
 Marathi model accuracy result.
 
+After reviewing the Sewage-to-Solid-Waste confusions, phrase-first Marathi
+routing, drain-anchor co-occurrence checks, and targeted compound patterns
+were added. All seven content-bearing drainage misclassification examples
+now route to Sewage & Drainage in direct prediction checks; the low-information
+"Hi / Please assist" complaint is not treated as a drainage rule and needs
+label/data review. These routing checks do not change the classifier-only
+holdout accuracy above; evaluate the full live pipeline separately before
+claiming an updated overall system accuracy.
+
 The workbook has no real Encroachment Department examples; that class is
 currently represented by synthetic training examples, so its production
 accuracy and recall are unknown. There are also 637 repeated normalized rows,
@@ -75,6 +84,9 @@ hyperparameter.
 - Added longest-first explicit Marathi phrase rules and explicit inflection
   mappings; no suffix stripping is used. Standalone "काढा" is not a routing
   rule.
+- Added drain-anchor and targeted compound rules to separate drainage
+  complaints from generic garbage complaints, with sewage checked before
+  water in single-keyword fallback.
 - Added a separate Marathi metrics chart, confusion matrix, and
   `evaluation_metrics.json`; Marathi metrics do not contribute to the primary
   accuracy score.
