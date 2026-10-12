@@ -1,9 +1,14 @@
 import streamlit as st
 import requests
 import io
+import os
+from pathlib import Path
+from xml.sax.saxutils import escape
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 )
@@ -13,6 +18,27 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT
 API_URL = "http://localhost:3000"
 
 from utils.data import classify_complaint, DEPARTMENTS
+
+
+def _register_devanagari_font():
+    font_name = "LokSevaDevanagari"
+    if font_name in pdfmetrics.getRegisteredFontNames():
+        return font_name
+
+    candidates = [
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "Nirmala.ttc",
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagariUI-Regular.ttf"),
+    ]
+    font_path = next((path for path in candidates if path.is_file()), None)
+    if font_path is None:
+        return "Helvetica"
+
+    font = TTFont(font_name, str(font_path), subfontIndex=0, shapable=True)
+    if not font.shapable:
+        return "Helvetica"
+    pdfmetrics.registerFont(font)
+    return font_name
 
 
 # ── PDF GENERATOR ────────────────────────────────────────────────────────────
@@ -29,6 +55,7 @@ def generate_complaint_pdf(name, phone, complaint_id, category, department,
     navy   = colors.HexColor("#0f2547")
     gold   = colors.HexColor("#f59e0b")
     light  = colors.HexColor("#f0f4f8")
+    description_font = _register_devanagari_font()
 
     title_style = ParagraphStyle(
         "title", parent=styles["Title"],
@@ -53,7 +80,7 @@ def generate_complaint_pdf(name, phone, complaint_id, category, department,
     body_style = ParagraphStyle(
         "body", parent=styles["Normal"],
         fontSize=10, textColor=colors.HexColor("#1e293b"),
-        leading=16, spaceAfter=8
+        leading=16, spaceAfter=8, fontName=description_font
     )
     footer_style = ParagraphStyle(
         "footer", parent=styles["Normal"],
@@ -126,7 +153,7 @@ def generate_complaint_pdf(name, phone, complaint_id, category, department,
     story.append(HRFlowable(width="100%", thickness=1,
                             color=colors.HexColor("#e2e8f0"), spaceAfter=8))
     desc_table = Table(
-        [[Paragraph(str(complaint_text), body_style)]],
+        [[Paragraph(escape(str(complaint_text)).replace("\n", "<br/>"), body_style)]],
         colWidths=["100%"]
     )
     desc_table.setStyle(TableStyle([

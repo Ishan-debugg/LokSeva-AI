@@ -21,13 +21,15 @@ refined after reviewing errors from this holdout.
   non-Marathi-marker rows and 96 Marathi-marker rows (544 records total).
   Duplicate records remain part of the record-weighted score.
 - Model: Logistic Regression (`C=5`), selected by grouped cross-validation.
-  The text features and fitted-model predictions are held constant; this
-  comparison measures the routing-rule changes.
+  The selected configuration and classifier-only holdout metrics remained
+  the same. The final run also retrained with the standalone "काढा" expansion
+  removed, so the comparison reflects the complete final pipeline, not only
+  rule changes.
 - Marathi identification: the existing grammatical-marker heuristic, not
   human-verified language labels.
-- The previous broad-rule results were recorded in the prior comparison.
-  The narrowed results were recomputed after removing broad cleaning and
-  septic-tank overrides.
+- The previous broad-rule results were recorded in the prior comparison;
+  narrowed-rule results were recomputed on the same holdout after removing
+  broad cleaning and septic-tank overrides.
 
 ## End-to-end results
 
