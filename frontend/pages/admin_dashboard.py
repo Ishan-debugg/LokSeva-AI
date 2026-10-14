@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
+from utils.styles import style_plotly_figure
 
 API_URL = "http://localhost:3000"
 
@@ -63,11 +64,11 @@ def render():
     filtered_df = df[df["department"] == department_filter] if department_filter != "All" else df
 
     dept_chart = px.pie(filtered_df, names="department")
-    st.plotly_chart(dept_chart, use_container_width=True)
+    st.plotly_chart(style_plotly_figure(dept_chart), use_container_width=True, theme=None)
 
     st.markdown("### Complaints by Status")
     status_chart = px.bar(filtered_df, x="status")
-    st.plotly_chart(status_chart, use_container_width=True)
+    st.plotly_chart(style_plotly_figure(status_chart), use_container_width=True, theme=None)
 
     st.markdown("### Update Complaint Status")
     complaint_ids = filtered_df["id"].tolist()

@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from utils.styles import style_plotly_figure
 
 API_URL = "http://localhost:3000"
 IST = "Asia/Kolkata"
@@ -104,7 +105,7 @@ def render():
         )
         fig_bar.update_layout(showlegend=False, height=400)
         fig_bar.add_hline(y=80, line_dash="dash", line_color="orange", annotation_text="80% target")
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(style_plotly_figure(fig_bar), use_container_width=True, theme=None)
 
         st.markdown("### 📊 Complaint Status Breakdown by Department")
         fig_stack = go.Figure()
@@ -113,7 +114,7 @@ def render():
         fig_stack.add_trace(go.Bar(name="🔴 Breached", x=df["department"], y=df["breached"], marker_color="#e74c3c"))
         fig_stack.add_trace(go.Bar(name="🔵 Resolved", x=df["department"], y=df["resolved"], marker_color="#3498db"))
         fig_stack.update_layout(barmode="stack", height=400, xaxis_tickangle=-30)
-        st.plotly_chart(fig_stack, use_container_width=True)
+        st.plotly_chart(style_plotly_figure(fig_stack), use_container_width=True, theme=None)
 
         st.download_button(
             "⬇️ Download compliance report (CSV)",
@@ -229,7 +230,7 @@ def render():
             )
             fig.add_hline(y=4, line_dash="dash", line_color="orange", annotation_text="4 day SLA target")
             fig.update_layout(height=350, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(style_plotly_figure(fig), use_container_width=True, theme=None)
             st.dataframe(avg_res, use_container_width=True, hide_index=True)
         else:
             st.info("No resolved complaints with a recorded resolution time yet.")

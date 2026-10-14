@@ -1,5 +1,13 @@
 import streamlit as st
 
+
+def style_plotly_figure(figure):
+    return figure.update_layout(
+        paper_bgcolor="#e5e7eb",
+        plot_bgcolor="#e5e7eb",
+    )
+
+
 def inject_global_styles():
 
     st.markdown(

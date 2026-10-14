@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
+from utils.styles import style_plotly_figure
 
 API_URL = "http://localhost:3000"
 
@@ -77,11 +78,10 @@ def render():
             color="department", color_discrete_sequence=color_palette
         )
         dept_chart.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font_color='#334155', xaxis_title="Department", yaxis_title="Count",
             showlegend=False, margin=dict(t=10)
         )
-        st.plotly_chart(dept_chart, use_container_width=True)
+        st.plotly_chart(style_plotly_figure(dept_chart), use_container_width=True, theme=None)
 
     with chart_col2:
         st.markdown("<h3 style='color: var(--text-dark); font-size: 1.3rem; margin-bottom: 0.8rem;'>Complaints by Status</h3>", unsafe_allow_html=True)
@@ -90,10 +90,9 @@ def render():
             color_discrete_sequence=color_palette
         )
         status_chart.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
             font_color='#334155', margin=dict(t=10)
         )
-        st.plotly_chart(status_chart, use_container_width=True)
+        st.plotly_chart(style_plotly_figure(status_chart), use_container_width=True, theme=None)
 
     st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
 
