@@ -221,79 +221,10 @@ Complaint Text (any language)
 
 ---
 
-## 🚀 Setup
 
-### Prerequisites
-
-```
-Node.js  ≥ 22
-Python   ≥ 3.10
-PostgreSQL 17
-```
-
-### 1. Clone
-
-```bash
 git clone https://github.com/Ishan-debugg/lok-seva-ai.git
 cd lok-seva-ai
 ```
-
-### 2. Database
-
-Create the database and run the schema:
-
-```sql
--- In pgAdmin Query Tool or psql
-CREATE DATABASE loksevaai;
-```
-
-Then run `database/schema.sql` and `database/schema_sla_update.sql` on the `loksevaai` database.
-
-### 3. Backend
-
-```bash
-cd backend
-npm install
-node server.js
-# Server running on port 3000
-```
-
-### 4. ML Service
-
-```bash
-cd ml-service
-pip install -r requirements.txt
-
-# Train the model (required on first run)
-python train.py
-
-# Start the prediction service
-python app.py
-# Flask running on port 5000
-```
-
-### 5. Frontend
-
-```bash
-cd frontend
-pip install -r requirements.txt
-streamlit run app.py
-# App running on http://localhost:8501
-```
-
-### Environment — `backend/config/db.js`
-
-```javascript
-const pool = new Pool({
-  user:     "postgres",
-  host:     "localhost",
-  database: "loksevaai",
-  password: "your_password",
-  port:     5432,
-});
-```
-
----
 
 ## 📸 Screenshots
 
