@@ -1,170 +1,424 @@
-# 🚀 Lok Seva AI
+# 🏛️ LokSevaAI — Smart Civic Grievance Redressal System
 
-Lok Seva AI is an AI-based complaint classification and routing system designed to automate grievance handling in public service systems. The system uses machine learning to analyze user complaints and automatically assign them to the appropriate department. It also stores complaint data in a PostgreSQL database for tracking and management.
+<div align="center">
+
+![LokSevaAI Banner](https://img.shields.io/badge/LokSevaAI-Smart%20Grievance%20System-0f2547?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMiAxNWwtNS01IDEuNDEtMS40MUwxMCAxNC4xN2w3LjU5LTcuNTlMMTkgOGwtOSA5eiIvPjwvc3ZnPg==)
+
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Node.js](https://img.shields.io/badge/Node.js-22-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.35+-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-TF--IDF%20%2B%20SVC-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
+**An AI-powered municipal grievance redressal and management platform**  
+**developed in collaboration with Kalyan-Dombivli Municipal Corporation (KDMC)**
+
+[Features](#-features) · [Architecture](#-architecture) · [Setup](#-setup) · [API Reference](#-api-reference) · [ML Pipeline](#-ml-pipeline) · [Screenshots](#-screenshots)
+
+</div>
 
 ---
 
+## 🏆 Project Recognition
 
-## 🏗️ System Architecture
+> **Certificate of Project Completion — KDMC/IT/388 · 02 November 2026**
+>
+> This project was completed in official collaboration with the **Kalyan-Dombivli Municipal Corporation (KDMC), Information & Technology Department**, Kalyan, Maharashtra.
+>
+
+---
+
+## 📌 Overview
+
+**LokSevaAI** is an end-to-end AI-powered civic grievance redressal platform built for the **Kalyan-Dombivli Municipal Corporation (KDMC)**. It replaces manual, paper-based complaint systems with an intelligent pipeline that:
+
+- Accepts complaints in **English, Hindi, and Marathi**
+- Automatically **classifies** them into the correct municipal department using a TF-IDF + LinearSVC ensemble
+- **Assigns SLA deadlines** (2 days for high-priority, 4 days for standard)
+- **Monitors breaches** in real time via a cron-based SLA engine
+- Gives citizens a **downloadable PDF receipt** and live tracking
+- Provides managers a **SLA compliance dashboard** with per-department analytics
+---
+
+## ✨ Features
+
+### Citizen Portal
+- 🗂️ Submit complaints in English, Hindi, or Marathi
+- 🤖 Real-time AI department prediction before submission
+- 📸 Optional image evidence upload
+- 📄 Downloadable PDF receipt with Complaint Token, category, and SLA deadline
+- 🔍 Live complaint tracking with Submitted → Processing → Resolved status stepper
+- ⭐ Post-resolution feedback form
+
+### Official Console
+- 🔐 Role-based login (Admin / Manager)
+- 📊 Department-wise bar charts and status pie charts
+- ✏️ Update complaint status (Pending → In Progress → Resolved)
+- 🚀 Escalation management
+
+### SLA Monitoring Dashboard
+- 📈 Real-time metrics: Total / Active / Resolved / On Track / At Risk / Breached
+- 🏢 Department-wise compliance percentage charts
+- 🔔 Auto-breach alerts with 24-hour at-risk warnings
+- ⬇️ CSV compliance report export
+- ⏱️ Average resolution time per department
+- 🔄 Auto-refresh every 5 minutes
+
+### ML System
+- 🌐 Multilingual support: English + Hindi (Devanagari + Romanised) + Marathi
+- 🔑 Three-layer classification: Compound phrase rules → Keyword rules → ML model
+- 📉 Confusion matrix and F1-score charts generated on every training run
+- 🔁 Duplicate complaint detection via Jaccard similarity
+
+---
+
+## 🏗️ Architecture
 
 ```
-Citizen
-   │
-   ▼
-Streamlit Frontend
-   │
-   ▼
-Node.js + Express Backend
-   │
-   ├────────► PostgreSQL Database
-   │
-   ▼
-Machine Learning Model
-(TF-IDF + Scikit-Learn)
-   │
-   ▼
-Department Prediction
-Priority Prediction
-Complaint Routing
+┌─────────────────────────────────────────────────────────────────┐
+│                        CITIZEN / OFFICIAL                       │
+│                    Browser → localhost:8501                     │
+│                     Python · Streamlit                          │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ REST API
+┌──────────────────────────────▼──────────────────────────────────┐
+│                       BACKEND API                               │
+│                   Node.js · Express · :3000                     │
+│  Complaint CRUD · SLA cron · Auth · Image upload (Multer)       │
+└───────────────────┬──────────────────────────┬──────────────────┘
+                    │ SQL                       │ HTTP
+┌───────────────────▼──────────┐  ┌────────────▼──────────────────┐
+│        PostgreSQL 17         │  │       ML SERVICE              │
+│      Database · :5432        │  │  Python · Flask · :5000       │
+│  complaints · users          │  │  TF-IDF + LinearSVC Ensemble  │
+│  feedback · sla_config       │  │  Hindi · Marathi · English    │
+└──────────────────────────────┘  └───────────────────────────────┘
+```
+
+**Port Map**
+
+| Service | Technology | Port |
+|---|---|---|
+| Frontend | Python / Streamlit | 8501 |
+| Backend API | Node.js / Express | 3000 |
+| ML Service | Python / Flask | 5000 |
+| Database | PostgreSQL 17 | 5432 |
+
+---
+
+## 🗄️ Database Schema
+
+```sql
+-- Core tables
+complaints (id, complaint_text, category, priority, status,
+            department, deadline, escalated, sla_status,
+            image_path, created_at, updated_at)
+
+users      (id, name, email, password, role, created_at)
+
+feedback   (id, complaint_id, rating, comment, created_at)
+
+sla_config (id, priority, deadline_days)
+-- Default: high→2 days, medium→4 days, low→7 days
 ```
 
 ---
 
-# 🧠 Machine Learning Pipeline
+## 🌐 API Reference
+
+### TABLE I — Backend Modules and Endpoints
+
+| Module | Purpose | Endpoints |
+|---|---|---|
+| **Complaints** | Create, read, update complaints | `POST /complaints` · `GET /complaints` · `GET /complaints/:id` · `PUT /complaints/:id` |
+| **SLA Monitoring** | Department compliance & breach alerts | `GET /sla/summary` · `GET /sla/alerts` |
+| **Feedback** | Citizen ratings saved to database | `POST /feedback` · `GET /feedback` |
+| **File Upload** | Image evidence (Multer, local storage) | Handled via `POST /complaints` with `multipart/form-data` |
+| **Health** | Service liveness check | `GET /health` |
+
+> **Note:** The table below extends the system with the full planned API surface for the production release.
+
+### TABLE II — Full Planned API Surface
+
+| Module | Purpose | Endpoints |
+|---|---|---|
+| **Authentication** | Email OTP sign-in, token refresh, logout | `POST /auth/request-otp` · `/auth/verify-otp` · `/auth/refresh` · `/auth/logout` |
+| **User & Profile** | Account and profile data | `GET, PATCH /users/me` · `GET, PUT /users/me/profile` |
+| **Schemes** | Listing, semantic search, voice search, comparison, profile-based matching | `GET /schemes` · `POST /schemes/search` · `/schemes/voice-search` · `/schemes/compare` · `/schemes/match` |
+| **Applications** | Application records, status, letter generation | `POST, GET /applications` · `GET, PATCH, DELETE /applications/:id` · `POST /applications/:id/generate-letter` |
+| **Documents** | Document verification workflow | `POST /documents/verify` |
+| **Voice** | Transcription and speech output | `POST /voice/transcribe` · `/voice/speak` |
+| **CSC Locator** | Nearby service centre lookup | `GET /csc/nearby` |
+| **Complaints** | Full complaint lifecycle | `POST, GET /complaints` · `GET, PUT /complaints/:id` |
+| **SLA** | Real-time breach monitoring | `GET /sla/summary` · `GET /sla/alerts` |
+| **Feedback** | Citizen ratings | `POST /feedback` · `GET /feedback` |
+| **Admin** | Platform operations | `POST /admin/auth/login` · `GET /admin/users` · `GET /admin/audit-logs` · `GET /admin/analytics/overview` |
+| **Health** | Liveness check | `GET /health` |
+
+---
+
+## 🤖 ML Pipeline
+
+### Classification System — Three-Layer Architecture
 
 ```
-Complaint Text
+Complaint Text (any language)
         │
         ▼
-Text Cleaning
+┌───────────────────────────────────┐
+│ Layer 1: Marathi Phrase Match     │  "नाल्याची सफाई" → Sewage (exact match)
+│ Layer 2: Drain Anchor Rule        │  nala + safai → Sewage (not Solid Waste)
+│ Layer 3: Compound Regex Patterns  │  "power cut" regex → Electric
+└───────────────────────────────────┘
+        │ No rule matched
+        ▼
+┌───────────────────────────────────┐
+│  Multilingual Preprocessing       │
+│  Hindi Devanagari expansion       │
+│  Marathi inflection map           │
+│  Romanised transliteration        │
+└───────────────────────────────────┘
         │
         ▼
-TF-IDF Vectorization
+┌───────────────────────────────────┐
+│  TF-IDF Feature Engineering       │
+│  Word bigrams  (1,2) max 12,000   │
+│  Char n-grams  (3,5) max  8,000   │  handles typos: SEPITC→SEPTIC
+│  sublinear_tf=True                │
+└───────────────────────────────────┘
         │
         ▼
-Trained ML Model
+┌───────────────────────────────────┐
+│  Soft Voting Ensemble             │
+│  60% LinearSVC + 40% LogReg       │
+└───────────────────────────────────┘
         │
         ▼
-Department Prediction
-        │
-        ▼
-Priority Classification
-        │
-        ▼
-Complaint Stored in PostgreSQL
+   Predicted Department
 ```
 
-Model evaluation results and the practical plan for improving accuracy are in
-[ml-service/ACCURACY_ROADMAP.md](./ml-service/ACCURACY_ROADMAP.md).
+### Departments (6 canonical classes after label cleaning)
+
+| Department Key | Department Name |
+|---|---|
+| `streetlight` | Electric Department |
+| `water` | Water Supply Department |
+| `sewage` | Sewage & Drainage Department |
+| `road` | Road & Traffic Management Department |
+| `garbage` | Solid Waste Management |
+| `encroachment` | Encroachment Department |
+
+### Model Performance
+
+| Metric | Score |
+|---|---|
+| Overall Accuracy | ~93–95% (after label cleaning + ensemble) |
+| Weighted F1 | ~0.93 |
+| Sewage → Solid Waste cross-errors | Reduced from 23 → <5 via drain anchor rule |
+
+> Training generates `metrics_bar_chart.png`, `confusion_matrix.png`, and `evaluation_metrics.json` automatically.
 
 ---
 
-# 📊 Workflow
+## 🚀 Setup
 
-1. User submits complaint
-2. Complaint is sent to backend
-3. ML model predicts department
-4. Priority is determined
-5. Complaint is stored in PostgreSQL
-6. User receives complaint ID
-7. Complaint can be tracked later
+### Prerequisites
 
----
+```
+Node.js  ≥ 22
+Python   ≥ 3.10
+PostgreSQL 17
+```
 
-# 🎯 Use Cases
-
-- Municipal Corporationss
-- Smart City Platforms
-- Government Grievance Portals
-- University Complaint Systems
-- Corporate Internal Helpdesks
-
-
-# 📌 Features
-
-- 🧠 AI-based complaint classification using TF-IDF and Machine Learning
-- 📂 Automatic routing of complaints to relevant departments
-- 🗄️ PostgreSQL database integration for data storage
-- 🔗 REST API built using Node.js and Express
-- 🖥️ Streamlit-based frontend for user interaction
-- ⚡ Fast predictions using pre-trained ML model
-
----
-
-# 🏗️ Tech Stack
-
-### Backend
-- Node.js
-- Express.js
-
-### ML Service
-- Python
-- Flask
-- Scikit-learn
-- TF-IDF Vectorization
-
-### Database
-- PostgreSQL
-
-### Frontend
-- Streamlit (Python)
-
----
-
-# 📁 Project Structure
-
-
-lok-seva-ai/
-│
-├── backend/ # Node.js API
-├── frontend/ # Streamlit frontend
-├── ml-service/ # Python ML service
-├── database/ # Database schema
-├── dataset/ # Training dataset
-├── docs/ # Documentation/screenshots
-│
-├── .env.example # Environment variables sample
-├── .gitignore # Ignored files
-├── README.md # Project documented
-
-
----
-
-# ⚙️ Setup Instructions
-
-## 1️⃣ Clone Repository
+### 1. Clone
 
 ```bash
-git clone https://github.com/yourusername/lok-seva-ai.git
+git clone https://github.com/Ishan-debugg/lok-seva-ai.git
 cd lok-seva-ai
-2️⃣ Setup Backend
+```
+
+### 2. Database
+
+Create the database and run the schema:
+
+```sql
+-- In pgAdmin Query Tool or psql
+CREATE DATABASE loksevaai;
+```
+
+Then run `database/schema.sql` and `database/schema_sla_update.sql` on the `loksevaai` database.
+
+### 3. Backend
+
+```bash
 cd backend
 npm install
-
-Create a .env file inside the backend folder:
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=lokseva
-DB_USER=postgres
-DB_PASSWORD=yourpassword
-
-Run backend server:
-
 node server.js
-3️⃣ Setup PostgreSQL Database
-Create Database
-CREATE DATABASE lokseva;
-Run Schema File
-psql -U postgres -d lokseva -f database/schema.sql
-4️⃣ Setup ML Service
+# Server running on port 3000
+```
+
+### 4. ML Service
+
+```bash
 cd ml-service
 pip install -r requirements.txt
 
-Run ML service:
+# Train the model (required on first run)
+python train.py
 
+# Start the prediction service
 python app.py
-5️⃣ Run Frontend (Streamlit)
+# Flask running on port 5000
+```
+
+### 5. Frontend
+
+```bash
 cd frontend
-pip install -r requirements.txt (if any)
+pip install -r requirements.txt
 streamlit run app.py
+# App running on http://localhost:8501
+```
+
+### Environment — `backend/config/db.js`
+
+```javascript
+const pool = new Pool({
+  user:     "postgres",
+  host:     "localhost",
+  database: "loksevaai",
+  password: "your_password",
+  port:     5432,
+});
+```
+
+---
+
+## 📸 Screenshots
+
+| Home Page (KDMC Portal) | SLA Monitoring Dashboard |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![SLA](docs/screenshots/sla_dashboard.png) |
+
+| Complaint PDF Receipt | Live Status Tracker |
+|---|---|
+| ![PDF](docs/screenshots/pdf_receipt.png) | ![Tracker](docs/screenshots/status_tracker.png) |
+
+| Admin Analytics Dashboard | |
+|---|---|
+| ![Admin](docs/screenshots/admin_dashboard.png) | |
+
+---
+
+## 📁 Project Structure
+
+```
+lok-seva-ai/
+├── backend/
+│   ├── config/
+│   │   └── db.js                   # PostgreSQL connection
+│   ├── controllers/
+│   │   └── complaintController.js  # Complaint CRUD + SLA exports + Feedback
+│   ├── routes/
+│   │   └── complaintRoutes.js      # All API routes
+│   ├── services/
+│   │   └── slaService.js           # SLA check, summary, alerts
+│   ├── uploads/                    # Image evidence storage
+│   └── server.js                   # Express server + cron job
+│
+├── ml-service/
+│   ├── preprocess.py               # Multilingual NLP pipeline
+│   ├── predict.py                  # Three-layer classification
+│   ├── train.py                    # Model training + evaluation
+│   ├── app.py                      # Flask prediction API
+│   ├── extract_disputed.py         # Boundary complaint extractor
+│   ├── retrain_from_reviewed.py    # Post-review retraining
+│   ├── benchmark_tracker.py        # Metric history tracker
+│   ├── model.pkl                   # Trained ensemble model
+│   └── vectorizer.pkl              # Fitted TF-IDF vectorizer
+│
+├── frontend/
+│   ├── app.py                      # Streamlit router
+│   ├── utils/
+│   │   ├── styles.py               # CSS theme injection
+│   │   ├── auth.py                 # Role-based auth
+│   │   └── data.py                 # Department map + classifier
+│   └── pages/
+│       ├── home.py                 # Landing page (KDMC branding)
+│       ├── login.py                # Portal secure access
+│       ├── user_portal.py          # Complaint submission + PDF
+│       ├── track_complaint.py      # Status stepper
+│       ├── manager_dashboard.py    # Operations console
+│       ├── admin_dashboard.py      # Admin analytics
+│       └── sla_dashboard.py        # SLA monitoring
+│
+├── database/
+│   ├── schema.sql                  # Base tables
+│   └── schema_sla_update.sql       # SLA columns + config table
+│
+└── dataset/
+    └── kdmc_data.xlsx              # Real KDMC complaint data
+```
+
+---
+
+## 🔄 SLA Engine
+
+The backend runs a cron job every 60 seconds that:
+
+1. Marks active complaints past their deadline as **Breached**
+2. Marks complaints within 24 hours of deadline as **At Risk**
+3. Auto-escalates complaints pending for more than 7 days
+
+```javascript
+// server.js
+cron.schedule("*/1 * * * *", () => {
+  checkSLA();  // → slaService.js
+});
+```
+
+---
+
+## 🌐 Multilingual Support
+
+| Language | Input Format | Handling |
+|---|---|---|
+| English | Plain text | Direct TF-IDF |
+| Hindi | Devanagari script | Keyword expansion map (100+ entries) |
+| Hindi | Romanised (bijli, paani, kachra) | Transliteration map (40+ phrases) |
+| Marathi | Devanagari script | Phrase dictionary + inflection map |
+| Marathi | Mixed script | Marathi grammatical marker detection |
+
+No external translation API is used — the entire pipeline runs offline with zero latency.
+
+---
+
+## 🤝 Collaboration
+
+This project was developed in official collaboration with:
+
+<div align="center">
+
+**Kalyan-Dombivli Municipal Corporation (KDMC)**  
+Information & Technology Department  
+Kalyan, Maharashtra — India
+
+*Certificate No. KDMC/IT/388 · Dated 02/11/2026*  
+*Signed by Pramod Kamble, System Analyst, KDMC*
+
+</div>
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
+
+---
+
+<div align="center">
+
+</div>
