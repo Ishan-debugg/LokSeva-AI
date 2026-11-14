@@ -281,8 +281,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 
 <div align="center">
-
-Made with ❤️ for smart city governance  
+ 
 **K.J. Somaiya Institute of Technology · AI & Data Science · 2026**
 
 </div>
