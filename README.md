@@ -171,20 +171,6 @@ Complaint Text (any language)
 
 ---
 
-## 📸 Screenshots
-
-| Home Page (KDMC Portal) | SLA Monitoring Dashboard |
-|---|---|
-| ![Home](docs/screenshots/home.png) | ![SLA](docs/screenshots/sla_dashboard.png) |
-
-| Complaint PDF Receipt | Live Status Tracker |
-|---|---|
-| ![PDF](docs/screenshots/pdf_receipt.png) | ![Tracker](docs/screenshots/status_tracker.png) |
-
-| Admin Analytics Dashboard | |
-|---|---|
-| ![Admin](docs/screenshots/admin_dashboard.png) | |
-
 ---
 
 ## 📁 Project Structure
