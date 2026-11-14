@@ -107,56 +107,6 @@
 
 ---
 
-## 🗄️ Database Schema
-
-```sql
--- Core tables
-complaints (id, complaint_text, category, priority, status,
-            department, deadline, escalated, sla_status,
-            image_path, created_at, updated_at)
-
-users      (id, name, email, password, role, created_at)
-
-feedback   (id, complaint_id, rating, comment, created_at)
-
-sla_config (id, priority, deadline_days)
--- Default: high→2 days, medium→4 days, low→7 days
-```
-
----
-
-## 🌐 API Reference
-
-### TABLE I — Backend Modules and Endpoints
-
-| Module | Purpose | Endpoints |
-|---|---|---|
-| **Complaints** | Create, read, update complaints | `POST /complaints` · `GET /complaints` · `GET /complaints/:id` · `PUT /complaints/:id` |
-| **SLA Monitoring** | Department compliance & breach alerts | `GET /sla/summary` · `GET /sla/alerts` |
-| **Feedback** | Citizen ratings saved to database | `POST /feedback` · `GET /feedback` |
-| **File Upload** | Image evidence (Multer, local storage) | Handled via `POST /complaints` with `multipart/form-data` |
-| **Health** | Service liveness check | `GET /health` |
-
-> **Note:** The table below extends the system with the full planned API surface for the production release.
-
-### TABLE II — Full Planned API Surface
-
-| Module | Purpose | Endpoints |
-|---|---|---|
-| **Authentication** | Email OTP sign-in, token refresh, logout | `POST /auth/request-otp` · `/auth/verify-otp` · `/auth/refresh` · `/auth/logout` |
-| **User & Profile** | Account and profile data | `GET, PATCH /users/me` · `GET, PUT /users/me/profile` |
-| **Schemes** | Listing, semantic search, voice search, comparison, profile-based matching | `GET /schemes` · `POST /schemes/search` · `/schemes/voice-search` · `/schemes/compare` · `/schemes/match` |
-| **Applications** | Application records, status, letter generation | `POST, GET /applications` · `GET, PATCH, DELETE /applications/:id` · `POST /applications/:id/generate-letter` |
-| **Documents** | Document verification workflow | `POST /documents/verify` |
-| **Voice** | Transcription and speech output | `POST /voice/transcribe` · `/voice/speak` |
-| **CSC Locator** | Nearby service centre lookup | `GET /csc/nearby` |
-| **Complaints** | Full complaint lifecycle | `POST, GET /complaints` · `GET, PUT /complaints/:id` |
-| **SLA** | Real-time breach monitoring | `GET /sla/summary` · `GET /sla/alerts` |
-| **Feedback** | Citizen ratings | `POST /feedback` · `GET /feedback` |
-| **Admin** | Platform operations | `POST /admin/auth/login` · `GET /admin/users` · `GET /admin/audit-logs` · `GET /admin/analytics/overview` |
-| **Health** | Liveness check | `GET /health` |
-
----
 
 ## 🤖 ML Pipeline
 
@@ -293,21 +243,6 @@ lok-seva-ai/
 ```
 
 ---
-
-## 🔄 SLA Engine
-
-The backend runs a cron job every 60 seconds that:
-
-1. Marks active complaints past their deadline as **Breached**
-2. Marks complaints within 24 hours of deadline as **At Risk**
-3. Auto-escalates complaints pending for more than 7 days
-
-```javascript
-// server.js
-cron.schedule("*/1 * * * *", () => {
-  checkSLA();  // → slaService.js
-});
-```
 
 ---
 
