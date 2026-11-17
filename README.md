@@ -115,14 +115,19 @@
 ### Complaint Upload
 ![Complaint Upload](assets/Complaint.jpeg)
 
-### Complaint Receipt (Token)
-![Complaint Receipt](assets/Token.png)
+### Status Of Complaint
+![Status](assets/Status.png)
+
+### SLA Monitoring Dashboard
+![SLA Dashboard](assets/SLADashboard.png)
 
 ### Analytics — Complaints by Department & Status
 ![Visualization](assets/Visualization.jpeg)
 
-### SLA Monitoring Dashboard
-![SLA Dashboard](assets/SLADashboard.png)
+### Complaint Receipt (Token)
+![Complaint Receipt](assets/Token.png)
+
+
 
 
 ## 🤖 ML Pipeline
