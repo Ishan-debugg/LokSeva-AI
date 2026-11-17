@@ -104,6 +104,25 @@
 | Database | PostgreSQL 17 | 5432 |
 
 ---
+## 📸 Screenshots
+
+### Homepage
+![Homepage](assets/Homepage.png)
+
+### Auth Page
+![Auth Page](assets/AuthPage.png)
+
+### Complaint Upload
+![Complaint Upload](assets/Complaint_upload.jpeg)
+
+### Complaint Receipt (Token)
+![Complaint Receipt](assets/Token.png)
+
+### Analytics — Complaints by Department & Status
+![Visualization](assets/Visualization.jpeg)
+
+### SLA Monitoring Dashboard
+![SLA Dashboard](assets/SLA_Dashboard.png)
 
 
 ## 🤖 ML Pipeline
