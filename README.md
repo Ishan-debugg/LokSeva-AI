@@ -113,7 +113,7 @@
 ![Auth Page](assets/AuthPage.png)
 
 ### Complaint Upload
-![Complaint Upload](assets/Complaint.jpeg)
+![Complaint Upload](assets/Complaint_upload.jpeg)
 
 ### Complaint Receipt (Token)
 ![Complaint Receipt](assets/Token.png)
