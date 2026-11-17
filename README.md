@@ -113,7 +113,7 @@
 ![Auth Page](assets/AuthPage.png)
 
 ### Complaint Upload
-![Complaint Upload](assets/Complaint_upload.jpeg)
+![Complaint Upload](assets/Complaint.jpeg)
 
 ### Complaint Receipt (Token)
 ![Complaint Receipt](assets/Token.png)
@@ -122,7 +122,7 @@
 ![Visualization](assets/Visualization.jpeg)
 
 ### SLA Monitoring Dashboard
-![SLA Dashboard](assets/SLA_Dashboard.png)
+![SLA Dashboard](assets/SLA Dashboard.png)
 
 
 ## 🤖 ML Pipeline
